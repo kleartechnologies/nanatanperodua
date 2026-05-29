@@ -18,7 +18,6 @@ export function DashboardClient() {
   const [rows, setRowsRaw] = useState<CarModel[]>(DEFAULT_ROWS);
   const [logo, setLogoRaw] = useState<string | null>(null);
   const [bg, setBgRaw] = useState<string | null>(null);
-  const [advisorPhoto, setAdvisorPhotoRaw] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
 
   // Resize state
@@ -33,7 +32,6 @@ export function DashboardClient() {
     setRowsRaw(storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS));
     setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
     setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
-    setAdvisorPhotoRaw(storageGet<string | null>(STORAGE_KEYS.ADVISOR_PHOTO, null));
 
     const saved = +localStorage.getItem("lc:adminWidth")!;
     const init = saved > MIN_W
@@ -117,11 +115,6 @@ export function DashboardClient() {
     storageSet(STORAGE_KEYS.BG, v);
   }, []);
 
-  const setAdvisorPhoto = useCallback((v: string | null) => {
-    setAdvisorPhotoRaw(v);
-    storageSet(STORAGE_KEYS.ADVISOR_PHOTO, v);
-  }, []);
-
   // ── Drag handlers ────────────────────────────────────────────────
   function startDrag(e: React.MouseEvent) {
     e.preventDefault();
@@ -190,8 +183,6 @@ export function DashboardClient() {
           setLogo={setLogo}
           bg={bg}
           setBg={setBg}
-          advisorPhoto={advisorPhoto}
-          setAdvisorPhoto={setAdvisorPhoto}
           onGoLive={() => setFullscreen(true)}
         />
       </div>

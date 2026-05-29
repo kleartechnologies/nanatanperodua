@@ -47,14 +47,15 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Prop
             }}
           />
         ) : (
+          /* Default professional background — no image uploaded */
           <div
             className="w-full h-full"
             style={{
               background: `
-                radial-gradient(circle at 70% 25%, rgba(124,255,107,0.22), transparent 55%),
-                radial-gradient(circle at 20% 80%, rgba(60,180,255,0.18), transparent 55%),
-                radial-gradient(circle at 50% 50%, rgba(60,220,180,0.12), transparent 60%),
-                linear-gradient(135deg, #0e1c1e 0%, #14242b 45%, #0a1820 100%)
+                radial-gradient(ellipse 70% 55% at 60% 30%, color-mix(in oklab, var(--lc-accent) 9%, transparent), transparent 65%),
+                radial-gradient(ellipse 55% 45% at 20% 75%, rgba(30,120,180,0.14), transparent 65%),
+                radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,40,0.6), transparent 80%),
+                linear-gradient(160deg, #0c1a20 0%, #0a1520 40%, #080f18 70%, #06080a 100%)
               `,
             }}
           />
@@ -124,23 +125,12 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Prop
             {tweaks.campaignTag}
           </div>
 
-          {/* Logo */}
-          <div className="h-9 mt-1 flex items-center">
-            {logo ? (
-              <img src={logo} alt="" className="h-full object-contain" />
-            ) : (
-              <div
-                className="h-full flex items-center justify-center px-[18px] rounded-[10px] text-[10px] tracking-[0.18em]"
-                style={{
-                  border: "1px dashed rgba(255,255,255,0.2)",
-                  fontFamily: "var(--font-mono)",
-                  color: "rgba(255,255,255,0.4)",
-                }}
-              >
-                YOUR LOGO
-              </div>
-            )}
-          </div>
+          {/* Logo — hidden when none uploaded */}
+          {logo && (
+            <div className="h-9 mt-1 flex items-center">
+              <img src={logo} alt="Company logo" className="h-full object-contain" />
+            </div>
+          )}
 
           {/* Headline */}
           <h1

@@ -16,8 +16,6 @@ interface Props {
   setLogo: (v: string | null) => void;
   bg: string | null;
   setBg: (v: string | null) => void;
-  advisorPhoto: string | null;
-  setAdvisorPhoto: (v: string | null) => void;
   onGoLive: () => void;
 }
 
@@ -26,7 +24,6 @@ export function AdminPanel({
   rows, setRows,
   logo, setLogo,
   bg, setBg,
-  advisorPhoto, setAdvisorPhoto,
   onGoLive,
 }: Props) {
   return (
@@ -73,10 +70,8 @@ export function AdminPanel({
         <BrandingCard
           logo={logo}
           bg={bg}
-          advisorPhoto={advisorPhoto}
           onLogoChange={setLogo}
           onBgChange={setBg}
-          onAdvisorPhotoChange={setAdvisorPhoto}
         />
         <DisplayCopyCard tweaks={tweaks} onChange={setTweak} />
         <ThemeCard accent={tweaks.accent} onChange={(c) => setTweak("accent", c)} />

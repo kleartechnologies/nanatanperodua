@@ -32,6 +32,5 @@ export const STORAGE_KEYS = {
   ROWS: "lc:rows",
   LOGO: "lc:logo",
   BG: "lc:bg",
-  ADVISOR_PHOTO: "lc:advisorPhoto",
   ADMIN_WIDTH: "lc:adminWidth",
 } as const;

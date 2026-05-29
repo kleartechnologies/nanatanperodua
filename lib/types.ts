@@ -20,7 +20,6 @@ export interface DashboardState {
   rows: CarModel[];
   logo: string | null;
   bg: string | null;
-  advisorPhoto: string | null;
 }
 
 // Prepared for Supabase integration
