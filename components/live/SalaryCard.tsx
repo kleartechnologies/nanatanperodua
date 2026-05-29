@@ -36,7 +36,7 @@ export function SalaryCard({ salary, onSalaryChange, passCount, failCount, accen
         style={{
           background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01)), rgba(10,14,18,0.88)",
           border: "1px solid var(--lc-line-strong)",
-          padding: "18px 28px 14px",
+          padding: "clamp(12px, 3vw, 18px) clamp(14px, 4vw, 28px) 14px",
           backdropFilter: "blur(24px) saturate(1.2)",
           boxShadow: `0 24px 60px rgba(0,0,0,0.5), 0 0 80px color-mix(in oklab, ${accent} 10%, transparent), inset 0 1px 0 rgba(255,255,255,0.08)`,
         }}
@@ -79,7 +79,7 @@ export function SalaryCard({ salary, onSalaryChange, passCount, failCount, accen
             className="font-semibold tracking-[0.04em]"
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: "clamp(22px, 1.8vw, 28px)",
+              fontSize: "clamp(18px, 3.5vw, 28px)",
               color: accent,
             }}
           >

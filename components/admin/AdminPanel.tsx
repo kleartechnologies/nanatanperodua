@@ -17,6 +17,7 @@ interface Props {
   bg: string | null;
   setBg: (v: string | null) => void;
   onGoLive: () => void;
+  showHeader?: boolean;
 }
 
 export function AdminPanel({
@@ -25,6 +26,7 @@ export function AdminPanel({
   logo, setLogo,
   bg, setBg,
   onGoLive,
+  showHeader = true,
 }: Props) {
   return (
     <aside
@@ -35,35 +37,37 @@ export function AdminPanel({
         width: "100%",
       }}
     >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-[22px] py-[18px] flex-shrink-0 border-b"
-        style={{ borderColor: "var(--lc-line)" }}
-      >
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-[22px] h-[22px] rounded-[7px]"
-            style={{
-              background: tweaks.accent,
-              boxShadow: `0 0 18px color-mix(in oklab, ${tweaks.accent} 30%, transparent), inset 0 0 0 1px rgba(0,0,0,0.3)`,
-            }}
-          />
-          <div>
+      {/* Header — hidden on mobile tab layout (tab bar replaces it) */}
+      {showHeader && (
+        <div
+          className="flex items-center justify-between px-[22px] py-[18px] flex-shrink-0 border-b"
+          style={{ borderColor: "var(--lc-line)" }}
+        >
+          <div className="flex items-center gap-2.5">
             <div
-              className="text-[17px] font-bold tracking-tight"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              LiveCheck<span style={{ color: tweaks.accent }}>.</span>
-            </div>
-            <div
-              className="text-[11px] uppercase tracking-[0.06em] mt-0.5"
-              style={{ color: "var(--lc-text-mute)" }}
-            >
-              Sales Advisor Console
+              className="w-[22px] h-[22px] rounded-[7px]"
+              style={{
+                background: tweaks.accent,
+                boxShadow: `0 0 18px color-mix(in oklab, ${tweaks.accent} 30%, transparent), inset 0 0 0 1px rgba(0,0,0,0.3)`,
+              }}
+            />
+            <div>
+              <div
+                className="text-[17px] font-bold tracking-tight"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                LiveCheck<span style={{ color: tweaks.accent }}>.</span>
+              </div>
+              <div
+                className="text-[11px] uppercase tracking-[0.06em] mt-0.5"
+                style={{ color: "var(--lc-text-mute)" }}
+              >
+                Sales Advisor Console
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Scrollable content */}
       <div className="lc-admin-scroll overflow-y-auto overflow-x-hidden p-[18px] flex flex-col gap-3.5 flex-1 min-h-0">
@@ -83,7 +87,7 @@ export function AdminPanel({
         <EligibilityTableCard rows={rows} onChange={setRows} />
 
         <button
-          className="flex items-center justify-center gap-2.5 py-3.5 rounded-[14px] font-bold text-[13px] tracking-[0.02em] transition-all"
+          className="lc-touch flex items-center justify-center gap-2.5 py-3.5 rounded-[14px] font-bold text-[13px] tracking-[0.02em] transition-all"
           style={{
             background: tweaks.accent,
             color: "#001005",

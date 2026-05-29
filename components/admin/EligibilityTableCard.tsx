@@ -22,12 +22,13 @@ export function EligibilityTableCard({ rows, onChange }: Props) {
     background: "rgba(0,0,0,0.25)",
     border: "1px solid var(--lc-line)",
     borderRadius: 8,
-    padding: "7px 9px",
+    padding: "9px 9px",
     color: "var(--lc-text)",
     fontSize: 12,
     fontFamily: "inherit",
     outline: "none",
     minWidth: 0,
+    minHeight: 44,
   } as React.CSSProperties;
 
   return (
@@ -44,11 +45,13 @@ export function EligibilityTableCard({ rows, onChange }: Props) {
         <div className="text-[11px]" style={{ color: "var(--lc-text-dim)" }}>{rows.length} models</div>
       </div>
 
-      <div className="flex flex-col gap-1">
+      {/* Horizontally scrollable on very narrow screens */}
+      <div className="lc-table-scroll flex flex-col gap-1">
+        <div className="lc-table-min flex flex-col gap-1">
         {/* Header */}
         <div
           className="grid gap-1.5 px-1 pb-1.5 text-[10px] uppercase tracking-[0.08em]"
-          style={{ gridTemplateColumns: "64px 1fr 70px 26px", color: "var(--lc-text-dim)" }}
+          style={{ gridTemplateColumns: "64px 1fr 70px 32px", color: "var(--lc-text-dim)" }}
         >
           <span>Model</span>
           <span>Variants</span>
@@ -60,7 +63,7 @@ export function EligibilityTableCard({ rows, onChange }: Props) {
           <div
             key={r.id}
             className="grid gap-1.5 items-center"
-            style={{ gridTemplateColumns: "64px 1fr 70px 26px" }}
+            style={{ gridTemplateColumns: "64px 1fr 70px 32px" }}
           >
             <input
               style={{ ...cellStyle, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.02em" }}
@@ -91,8 +94,8 @@ export function EligibilityTableCard({ rows, onChange }: Props) {
             <button
               className="flex items-center justify-center p-0 rounded-lg transition-colors"
               style={{
-                width: 26,
-                height: 28,
+                width: 32,
+                height: 44,
                 background: "transparent",
                 border: "1px solid var(--lc-line)",
                 color: "var(--lc-text-dim)",
@@ -116,10 +119,11 @@ export function EligibilityTableCard({ rows, onChange }: Props) {
             </button>
           </div>
         ))}
-      </div>
+        </div>{/* lc-table-min */}
+      </div>{/* lc-table-scroll */}
 
       <button
-        className="mt-2.5 w-full rounded-[10px] py-[9px] text-[12px] transition-colors"
+        className="lc-touch mt-2.5 w-full rounded-[10px] py-[9px] text-[12px] transition-colors"
         style={{
           background: "transparent",
           border: "1px dashed var(--lc-line-strong)",

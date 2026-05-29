@@ -142,7 +142,109 @@
   --lc-text-mute: #8a93a3;
   --lc-text-dim: #5a6373;
   --lc-fail: oklch(0.7 0.22 25);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
+
+/* ── Touch optimisation ── */
+*, *::before, *::after { -webkit-tap-highlight-color: transparent; }
+button, [role="button"], input, label, select, textarea {
+  touch-action: manipulation;
+}
+/* iOS momentum scroll on overflow containers */
+.lc-admin-scroll, .lc-stage { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+/* ── Responsive stage padding ── */
+.lc-stage-pad { padding: 14px 14px 18px; }
+@media (min-width: 480px)  { .lc-stage-pad { padding: 18px 20px 20px; } }
+@media (min-width: 768px)  { .lc-stage-pad { padding: 22px 32px 22px; } }
+@media (min-width: 1024px) { .lc-stage-pad { padding: 28px 48px 24px; } }
+.lc-stage-pad-fs { padding: 28px 56px 24px !important; }
+@media (min-width: 1024px) { .lc-stage-pad-fs { padding: 28px 56px 24px !important; } }
+
+/* ── Responsive result grid ── */
+.lc-result-grid {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+  /* 1 column on very narrow containers; grows naturally */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+}
+@media (min-width: 480px)  { .lc-result-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; } }
+@media (min-width: 768px)  { .lc-result-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; } }
+@media (min-width: 1024px) { .lc-result-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; } }
+.lc-result-grid-fs {
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 14px !important;
+  flex: 1;
+  min-height: 0;
+  align-content: stretch;
+}
+
+/* ── Responsive salary card ── */
+.lc-salary-input,
+.lc-salary-display {
+  font-size: clamp(36px, 10vw, 72px);
+}
+@media (min-width: 768px) {
+  .lc-salary-input, .lc-salary-display { font-size: clamp(44px, 5.4vw, 72px); }
+}
+
+/* ── Responsive hero headline ── */
+.lc-hero-headline {
+  font-size: clamp(22px, 5vw, 48px) !important;
+}
+@media (min-width: 768px) {
+  .lc-hero-headline { font-size: clamp(28px, 3.4vw, 48px) !important; }
+}
+
+/* ── Responsive logo ── */
+.lc-hero-logo { height: clamp(28px, 4vw, 44px); }
+
+/* ── Mobile minimum touch target ── */
+.lc-touch { min-height: 44px; }
+
+/* ── Tab layout header ── */
+.lc-tab-header {
+  flex-shrink: 0;
+  background: var(--lc-bg-1);
+  border-bottom: 1px solid var(--lc-line);
+  padding-top: var(--safe-top);
+}
+.lc-tab-btn {
+  flex: 1;
+  padding: 11px 12px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--lc-text-mute);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  min-height: 44px;
+  font-family: inherit;
+}
+.lc-tab-btn.is-active {
+  color: var(--lc-text);
+  border-bottom-color: var(--lc-accent);
+}
+
+/* ── Safe area bottom spacer ── */
+.lc-safe-bottom {
+  height: var(--safe-bottom);
+  flex-shrink: 0;
+  background: var(--lc-bg-1);
+}
+
+/* ── Eligibility table scroll wrapper ── */
+.lc-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.lc-table-min { min-width: 300px; }
 
 /* ── Admin scrollbar ── */
 .lc-admin-scroll::-webkit-scrollbar { width: 6px; }

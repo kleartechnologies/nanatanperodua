@@ -103,8 +103,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Prop
 
       {/* Stage */}
       <div
-        className={`lc-stage relative z-[2] flex-1 flex flex-col items-center gap-[18px] min-h-0 ${fullscreen ? "overflow-hidden" : "overflow-y-auto"}`}
-        style={{ padding: fullscreen ? "28px 56px 24px" : "28px 48px 24px" }}
+        className={`lc-stage relative z-[2] flex-1 flex flex-col items-center gap-[14px] min-h-0 ${fullscreen ? "overflow-hidden lc-stage-pad-fs" : "overflow-y-auto lc-stage-pad"}`}
       >
         {/* Hero */}
         <div className="flex flex-col items-center gap-2.5 text-center w-full flex-shrink-0">
@@ -127,8 +126,8 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Prop
 
           {/* Logo — hidden when none uploaded */}
           {logo && (
-            <div className="h-9 mt-1 flex items-center">
-              <img src={logo} alt="Company logo" className="h-full object-contain" />
+            <div className="lc-hero-logo mt-1 flex items-center">
+              <img src={logo} alt="Company logo" className="h-full w-auto object-contain max-w-[180px]" />
             </div>
           )}
 
@@ -156,7 +155,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Prop
         </div>
 
         {/* Salary card */}
-        <div className="w-full flex justify-center flex-shrink-0" style={{ maxWidth: 680 }}>
+        <div className="w-full flex justify-center flex-shrink-0 px-0" style={{ maxWidth: 680 }}>
           <SalaryCard
             salary={salary}
             onSalaryChange={setSalary}

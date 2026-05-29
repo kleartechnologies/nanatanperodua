@@ -19,16 +19,7 @@ interface Props {
 
 export function ResultGrid({ rows, displayMode, accent, fullscreen }: Props) {
   return (
-    <div
-      className="w-full grid gap-3"
-      style={{
-        gridTemplateColumns: fullscreen ? "repeat(3, 1fr)" : "repeat(auto-fill, minmax(220px, 1fr))",
-        gap: fullscreen ? 14 : 12,
-        flex: fullscreen ? "1" : undefined,
-        minHeight: fullscreen ? 0 : undefined,
-        alignContent: fullscreen ? "stretch" : undefined,
-      }}
-    >
+    <div className={fullscreen ? "lc-result-grid lc-result-grid-fs" : "lc-result-grid"}>
       {rows.map((r) => (
         <div
           key={r.id}
@@ -48,6 +39,7 @@ export function ResultGrid({ rows, displayMode, accent, fullscreen }: Props) {
                 : "0 16px 40px rgba(0,0,0,0.4), 0 0 26px color-mix(in oklab, var(--lc-fail) 14%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)"
               : "none",
             minHeight: fullscreen ? 0 : undefined,
+            minWidth: 0,
           }}
         >
           {/* Card head */}
