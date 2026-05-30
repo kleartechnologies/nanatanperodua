@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import {
   DndContext,
   DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -22,24 +20,22 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { CarModel } from "@/lib/types";
 
-// ── Shared grid template ─────────────────────────────────────────
-const GRID = "22px 60px 1fr 68px 32px";
+// Column layout: handle | model | variants | min | delete
+const GRID = "32px 60px 1fr 68px 32px";
 
-// ── Drag handle icon (2 × 3 dots) ───────────────────────────────
 function GripIcon() {
   return (
-    <svg width="9" height="13" viewBox="0 0 9 13" fill="currentColor" aria-hidden>
-      <circle cx="2.5" cy="2"    r="1.3" />
-      <circle cx="6.5" cy="2"    r="1.3" />
-      <circle cx="2.5" cy="6.5"  r="1.3" />
-      <circle cx="6.5" cy="6.5"  r="1.3" />
-      <circle cx="2.5" cy="11"   r="1.3" />
-      <circle cx="6.5" cy="11"   r="1.3" />
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden>
+      <circle cx="3" cy="2"  r="1.4" />
+      <circle cx="7" cy="2"  r="1.4" />
+      <circle cx="3" cy="7"  r="1.4" />
+      <circle cx="7" cy="7"  r="1.4" />
+      <circle cx="3" cy="12" r="1.4" />
+      <circle cx="7" cy="12" r="1.4" />
     </svg>
   );
 }
 
-// ── Shared cell style ────────────────────────────────────────────
 const CELL: React.CSSProperties = {
   background: "rgba(0,0,0,0.25)",
   border: "1px solid var(--lc-line)",
@@ -53,40 +49,7 @@ const CELL: React.CSSProperties = {
   minHeight: 44,
 };
 
-// ── Drag overlay — slim pill showing the model name ───────────────
-function RowOverlay({ row }: { row: CarModel }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: GRID,
-        gap: 6,
-        alignItems: "center",
-        background: "rgba(8,12,18,0.97)",
-        border: "1px solid var(--lc-accent-soft)",
-        borderRadius: 10,
-        padding: "2px 6px 2px 2px",
-        boxShadow: "0 14px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)",
-      }}
-    >
-      <div className="lc-drag-handle flex items-center justify-center" style={{ width: 22, height: 44, color: "var(--lc-accent)" }}>
-        <GripIcon />
-      </div>
-      <div style={{ ...CELL, display: "flex", alignItems: "center", fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.02em" }}>
-        {row.model}
-      </div>
-      <div style={{ ...CELL, display: "flex", alignItems: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {row.variants.join(", ")}
-      </div>
-      <div style={{ ...CELL, display: "flex", alignItems: "center", justifyContent: "flex-end", fontVariantNumeric: "tabular-nums" }}>
-        {row.min.toLocaleString()}
-      </div>
-      <div style={{ width: 32 }} />
-    </div>
-  );
-}
-
-// ── Single sortable row ──────────────────────────────────────────
+// ── Sortable row ─────────────────────────────────────────────────
 interface SortableRowProps {
   row: CarModel;
   onUpdate: (patch: Partial<CarModel>) => void;
@@ -94,83 +57,125 @@ interface SortableRowProps {
 }
 
 function SortableRow({ row, onUpdate, onDelete }: SortableRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
+  const {
+    attributes, listeners, setNodeRef,
+    transform, transition, isDragging,
+  } = useSortable({ id: row.id });
 
   return (
+    /*
+     * Outer div: handles dnd-kit's translate transform only.
+     * No layout properties here so the transform origin stays
+     * exactly where dnd-kit expects it (top-left of the element).
+     */
     <div
       ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.3 : 1,
-        display: "grid",
-        gridTemplateColumns: GRID,
-        gap: 6,
-        alignItems: "center",
+        // Disable transition during active drag for instant response;
+        // re-enable for the drop snap-back animation.
+        transition: isDragging ? "none" : (transition ?? undefined),
+        zIndex: isDragging ? 50 : undefined,
+        position: "relative",
+        willChange: isDragging ? "transform" : undefined,
       }}
     >
-      {/* Drag handle */}
-      <button
-        className="lc-drag-handle flex items-center justify-center"
-        style={{ width: 22, height: 44, background: "transparent", border: 0, padding: 0, flexShrink: 0, touchAction: "none" }}
-        {...attributes}
-        {...listeners}
-        aria-label="Drag to reorder"
-      >
-        <GripIcon />
-      </button>
-
-      {/* Model */}
-      <input
-        style={{ ...CELL, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.02em" }}
-        value={row.model}
-        onChange={(e) => onUpdate({ model: e.target.value.toUpperCase() })}
-        onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
-        onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
-      />
-
-      {/* Variants */}
-      <input
-        style={CELL}
-        value={row.variants.join(", ")}
-        onChange={(e) => onUpdate({ variants: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
-        onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
-        onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
-      />
-
-      {/* Min salary */}
-      <input
-        type="number"
-        style={{ ...CELL, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
-        value={row.min}
-        onChange={(e) => onUpdate({ min: +e.target.value || 0 })}
-        onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
-        onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
-      />
-
-      {/* Delete */}
-      <button
-        className="flex items-center justify-center p-0 rounded-lg"
-        style={{ width: 32, height: 44, background: "transparent", border: "1px solid var(--lc-line)", color: "var(--lc-text-dim)" }}
-        onClick={onDelete}
-        onMouseEnter={(e) => {
-          const b = e.currentTarget as HTMLButtonElement;
-          b.style.color = "var(--lc-fail)";
-          b.style.borderColor = "color-mix(in oklab, var(--lc-fail) 40%, transparent)";
-          b.style.background  = "color-mix(in oklab, var(--lc-fail) 8%, transparent)";
+      {/*
+       * Inner div: owns the grid layout + all visual lift styles.
+       * Separating visual transform (scale) from positional transform
+       * prevents scale from altering the grab-point offset.
+       */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: GRID,
+          gap: 6,
+          alignItems: "center",
+          borderRadius: 10,
+          transition: "transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease",
+          transform: isDragging ? "scale(1.025)" : "scale(1)",
+          background: isDragging ? "rgba(6,10,16,0.97)" : "transparent",
+          border: isDragging
+            ? "1px solid color-mix(in oklab, var(--lc-accent) 35%, transparent)"
+            : "1px solid transparent",
+          boxShadow: isDragging
+            ? "0 10px 36px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05)"
+            : "none",
+          cursor: isDragging ? "grabbing" : "default",
         }}
-        onMouseLeave={(e) => {
-          const b = e.currentTarget as HTMLButtonElement;
-          b.style.color = "var(--lc-text-dim)";
-          b.style.borderColor = "var(--lc-line)";
-          b.style.background  = "transparent";
-        }}
-        aria-label="Delete row"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-        </svg>
-      </button>
+        {/* ── Drag handle ── */}
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          style={{
+            width: 32,
+            height: 44,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "transparent",
+            border: 0,
+            padding: 0,
+            flexShrink: 0,
+            touchAction: "none",
+            cursor: isDragging ? "grabbing" : "grab",
+            color: isDragging ? "var(--lc-accent)" : "var(--lc-text-dim)",
+            transition: "color 0.12s",
+            borderRadius: 6,
+          }}
+          onMouseEnter={(e) => {
+            if (!isDragging) (e.currentTarget as HTMLButtonElement).style.color = "var(--lc-accent)";
+          }}
+          onMouseLeave={(e) => {
+            if (!isDragging) (e.currentTarget as HTMLButtonElement).style.color = "var(--lc-text-dim)";
+          }}
+        >
+          <GripIcon />
+        </button>
+
+        {/* ── Model ── */}
+        <input
+          style={{ ...CELL, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.02em" }}
+          value={row.model}
+          onChange={(e) => onUpdate({ model: e.target.value.toUpperCase() })}
+          onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
+          onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
+        />
+
+        {/* ── Variants ── */}
+        <input
+          style={CELL}
+          value={row.variants.join(", ")}
+          onChange={(e) => onUpdate({ variants: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+          onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
+          onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
+        />
+
+        {/* ── Min salary ── */}
+        <input
+          type="number"
+          style={{ ...CELL, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
+          value={row.min}
+          onChange={(e) => onUpdate({ min: +e.target.value || 0 })}
+          onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
+          onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
+        />
+
+        {/* ── Delete ── */}
+        <button
+          style={{ width: 32, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "1px solid var(--lc-line)", borderRadius: 8, color: "var(--lc-text-dim)", cursor: "pointer", padding: 0 }}
+          onClick={onDelete}
+          onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-fail)"; b.style.borderColor = "color-mix(in oklab, var(--lc-fail) 40%, transparent)"; b.style.background = "color-mix(in oklab, var(--lc-fail) 8%, transparent)"; }}
+          onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-text-dim)"; b.style.borderColor = "var(--lc-line)"; b.style.background = "transparent"; }}
+          aria-label="Delete row"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -185,21 +190,16 @@ interface Props {
 }
 
 export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }: Props) {
-  const [activeId, setActiveId] = useState<number | null>(null);
-
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // Mouse — activates after 5px movement so clicks still register
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    // Touch — delay prevents scroll/drag confusion on mobile
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    // Keyboard — for accessibility
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const activeRow = rows.find(r => r.id === activeId) ?? null;
-
-  function handleDragStart({ active }: DragStartEvent) {
-    setActiveId(active.id as number);
-  }
-
   function handleDragEnd({ active, over }: DragEndEvent) {
-    setActiveId(null);
     if (over && active.id !== over.id) {
       const oldIdx = rows.findIndex(r => r.id === active.id);
       const newIdx = rows.findIndex(r => r.id === over.id);
@@ -219,16 +219,15 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
       {/* Header */}
       <div className="flex items-center justify-between mb-3.5">
         <div className="text-[13px] font-semibold tracking-[0.02em]">Eligibility table</div>
-
         <div className="flex items-center gap-3">
-          <span className="text-[11px]" style={{ color: "var(--lc-text-dim)" }}>
-            {rows.length} models
-          </span>
+          <span className="text-[11px]" style={{ color: "var(--lc-text-dim)" }}>{rows.length} models</span>
 
-          {/* Sync live display order toggle */}
+          {/* Sync live display toggle */}
           <label
             className="flex items-center gap-1.5 cursor-pointer select-none"
-            title={syncOrder ? "Live display follows table order — click to make it independent" : "Live display has independent order — click to sync with table"}
+            title={syncOrder
+              ? "Live display follows table order — click to make it independent"
+              : "Live display has independent order — click to sync with table"}
           >
             <button
               style={{
@@ -243,10 +242,9 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
               <span style={{
                 position: "absolute", top: 2, left: 2,
                 width: 12, height: 12, borderRadius: "50%",
-                background: "white",
+                background: "white", display: "block",
                 transition: "transform 0.2s",
                 transform: syncOrder ? "translateX(12px)" : "none",
-                display: "block",
               }} />
             </button>
             <span style={{ fontSize: 10, color: "var(--lc-text-dim)", letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
@@ -260,10 +258,10 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
       <div className="lc-table-scroll">
         <div className="lc-table-min flex flex-col gap-1">
 
-          {/* Column headers */}
+          {/* Column headers — must use same GRID template so columns align */}
           <div
             className="grid gap-1.5 pb-1.5 text-[10px] uppercase tracking-[0.08em]"
-            style={{ gridTemplateColumns: GRID, color: "var(--lc-text-dim)", paddingLeft: 2 }}
+            style={{ gridTemplateColumns: GRID, color: "var(--lc-text-dim)" }}
           >
             <span />
             <span>Model</span>
@@ -272,11 +270,9 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
             <span />
           </div>
 
-          {/* Sortable rows */}
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={rows.map(r => r.id)} strategy={verticalListSortingStrategy}>
@@ -289,10 +285,10 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
                 />
               ))}
             </SortableContext>
-
-            <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.25,1,0.5,1)" }}>
-              {activeRow ? <RowOverlay row={activeRow} /> : null}
-            </DragOverlay>
+            {/* No DragOverlay — the sortable item itself moves with the cursor.
+                DragOverlay caused cursor-offset because the overlay renders in a
+                portal without width constraints, producing a different bounding
+                rect than the in-table row. */}
           </DndContext>
 
         </div>

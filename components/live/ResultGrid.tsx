@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import {
   DndContext,
   DragEndEvent,
-  DragOverlay,
-  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -53,11 +51,10 @@ function GripIcon() {
 }
 
 // ── Pure visual card ─────────────────────────────────────────────
-function CardFace({ row, accent, displayMode, isOverlay = false }: {
+function CardFace({ row, accent, displayMode }: {
   row: EvaluatedRow;
   accent: string;
   displayMode: "glow" | "flat";
-  isOverlay?: boolean;
 }) {
   const passBorder = `color-mix(in oklab, ${accent} 35%, transparent)`;
   const failBorder = "color-mix(in oklab, var(--lc-fail) 30%, transparent)";
@@ -76,12 +73,9 @@ function CardFace({ row, accent, displayMode, isOverlay = false }: {
         background: row.eligible
           ? `linear-gradient(180deg, color-mix(in oklab, ${accent} 10%, transparent), rgba(0,0,0,0.05)), rgba(10,18,14,0.9)`
           : "linear-gradient(180deg, color-mix(in oklab, var(--lc-fail) 8%, transparent), rgba(0,0,0,0.05)), rgba(18,12,12,0.9)",
-        boxShadow: isOverlay
-          ? `0 28px 60px rgba(0,0,0,0.75), 0 0 40px color-mix(in oklab, ${row.eligible ? accent : "var(--lc-fail)"} 30%, transparent)`
-          : displayMode === "glow"
-            ? row.eligible ? passGlow : failGlow
-            : "none",
-        transform: isOverlay ? "scale(1.03) rotate(0.6deg)" : undefined,
+        boxShadow: displayMode === "glow"
+          ? row.eligible ? passGlow : failGlow
+          : "none",
       }}
     >
       {/* Drag hint — shown on hover via CSS class */}
@@ -154,44 +148,56 @@ function SortableCard({ row, accent, displayMode, disabled }: {
   });
 
   return (
+    /*
+     * Outer div: only dnd-kit positioning transform — no scale/visual.
+     * Inner CardFace wrapper: visual lift (scale, shadow) separate from
+     * positional transform so grab-point offset is never altered.
+     */
     <div
       ref={setNodeRef}
-      className={`lc-sortable-card${disabled ? "" : ""}`}
+      className="lc-sortable-card"
       data-drag-disabled={disabled}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.25 : 1,
+        transition: isDragging ? "none" : (transition ?? undefined),
+        zIndex: isDragging ? 50 : undefined,
+        position: "relative",
+        willChange: isDragging ? "transform" : undefined,
+        minHeight: 0,
         cursor: disabled ? "default" : isDragging ? "grabbing" : "grab",
         touchAction: disabled ? undefined : "none",
-        minHeight: 0,
       }}
       {...(disabled ? {} : { ...attributes, ...listeners })}
     >
-      <CardFace row={row} accent={accent} displayMode={displayMode} />
+      {/* Visual wrapper — scale lifts independently from the position transform */}
+      <div
+        style={{
+          transform: isDragging ? "scale(1.04)" : "scale(1)",
+          transition: "transform 0.12s ease, box-shadow 0.12s ease",
+          boxShadow: isDragging
+            ? "0 20px 60px rgba(0,0,0,0.75), 0 4px 20px rgba(0,0,0,0.5)"
+            : undefined,
+          borderRadius: 18,
+          height: "100%",
+        }}
+      >
+        <CardFace row={row} accent={accent} displayMode={displayMode} />
+      </div>
     </div>
   );
 }
 
 // ── ResultGrid ───────────────────────────────────────────────────
 export function ResultGrid({ rows, displayMode, accent, fullscreen, onReorder }: Props) {
-  const [activeId, setActiveId] = useState<number | null>(null);
-
   const dragEnabled = !fullscreen && !!onReorder;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const activeRow = rows.find(r => r.id === activeId) ?? null;
-
-  function handleDragStart({ active }: DragStartEvent) {
-    setActiveId(active.id as number);
-  }
-
   function handleDragEnd({ active, over }: DragEndEvent) {
-    setActiveId(null);
     if (over && active.id !== over.id) {
       const oldIdx = rows.findIndex(r => r.id === active.id);
       const newIdx = rows.findIndex(r => r.id === over.id);
@@ -203,7 +209,6 @@ export function ResultGrid({ rows, displayMode, accent, fullscreen, onReorder }:
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={rows.map(r => r.id)} strategy={rectSortingStrategy}>
@@ -219,14 +224,9 @@ export function ResultGrid({ rows, displayMode, accent, fullscreen, onReorder }:
           ))}
         </div>
       </SortableContext>
-
-      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.25,1,0.5,1)" }}>
-        {activeRow ? (
-          <div style={{ width: 220, pointerEvents: "none" }}>
-            <CardFace row={activeRow} accent={accent} displayMode={displayMode} isOverlay />
-          </div>
-        ) : null}
-      </DragOverlay>
+      {/* No DragOverlay — card element itself moves with the cursor via transform.
+          DragOverlay caused an offset because its rendered width (fixed 220px)
+          differed from the auto-fill grid cell width, shifting the grab point. */}
     </DndContext>
   );
 }
