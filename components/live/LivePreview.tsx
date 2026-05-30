@@ -12,9 +12,10 @@ interface Props {
   bg: string | null;
   fullscreen: boolean;
   onExit: () => void;
+  onReorder?: (newIds: number[]) => void;
 }
 
-export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Props) {
+export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit, onReorder }: Props) {
   const [salary, setSalary] = useState(tweaks.salary);
 
   useEffect(() => { setSalary(tweaks.salary); }, [tweaks.salary]);
@@ -171,6 +172,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit }: Prop
           displayMode={tweaks.displayMode}
           accent={tweaks.accent}
           fullscreen={fullscreen}
+          onReorder={onReorder}
         />
 
         {/* Disclaimer */}

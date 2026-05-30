@@ -421,6 +421,39 @@ body.is-resizing .lc-divider-grip { opacity: 1; }
   opacity: 0.35;
 }
 
+/* ── Drag & drop ── */
+
+/* Table row drag handle */
+.lc-drag-handle {
+  color: var(--lc-text-dim);
+  transition: color 0.12s;
+  cursor: grab;
+}
+.lc-drag-handle:hover { color: var(--lc-accent); }
+.lc-drag-handle:active  { cursor: grabbing; }
+
+/* Sortable result card */
+.lc-sortable-card {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  transition: opacity 0.15s;
+}
+.lc-sortable-card:active { cursor: grabbing; }
+
+/* Drag hint icon inside result card (shows on hover) */
+.lc-drag-hint {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.lc-sortable-card:hover .lc-drag-hint { opacity: 0.55; }
+
+/* When drag is disabled (fullscreen), reset cursor */
+.lc-sortable-card[data-drag-disabled="true"] {
+  cursor: default;
+}
+.lc-sortable-card[data-drag-disabled="true"]:hover .lc-drag-hint { opacity: 0; }
+
 /* ── Live background light streaks ── */
 .lc-live-bg::before {
   content: "";

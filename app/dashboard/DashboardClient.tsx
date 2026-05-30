@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 import type { TweakSettings, CarModel } from "@/lib/types";
 import { TWEAK_DEFAULTS, DEFAULT_ROWS, STORAGE_KEYS } from "@/lib/constants";
@@ -34,6 +34,12 @@ export function DashboardClient() {
   const [bg, setBgRaw] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
 
+  // ── Drag-and-drop order state ────────────────────────────────────
+  // syncOrder=true  → live display follows table row order
+  // syncOrder=false → live display has independent card order (stored as id array)
+  const [syncOrder, setSyncOrder] = useState(true);
+  const [displayOrderIds, setDisplayOrderIds] = useState<number[]>([]);
+
   // ── Responsive layout state ──────────────────────────────────────
   const [isDesktop, setIsDesktop] = useState(true);
   const [activeTab, setActiveTab] = useState<"dashboard" | "preview">("preview");
@@ -51,6 +57,8 @@ export function DashboardClient() {
     setRowsRaw(storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS));
     setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
     setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
+    setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
+    setDisplayOrderIds(storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []));
 
     // Admin panel width
     const saved = +localStorage.getItem("lc:adminWidth")!;
@@ -164,6 +172,43 @@ export function DashboardClient() {
     storageSet(STORAGE_KEYS.BG, v);
   }, []);
 
+  // ── Display order (live cards) ───────────────────────────────────
+
+  // Rows in live-display order (respects independent sort when sync is OFF)
+  const displayRows = useMemo<CarModel[]>(() => {
+    if (syncOrder || displayOrderIds.length === 0) return rows;
+    const map = new Map(rows.map(r => [r.id, r]));
+    const ordered = displayOrderIds
+      .map(id => map.get(id))
+      .filter((r): r is CarModel => r !== undefined);
+    // Append newly added rows not yet in displayOrderIds
+    const knownIds = new Set(displayOrderIds);
+    const newRows = rows.filter(r => !knownIds.has(r.id));
+    return [...ordered, ...newRows];
+  }, [rows, displayOrderIds, syncOrder]);
+
+  const onDisplayReorder = useCallback((newIds: number[]) => {
+    setDisplayOrderIds(newIds);
+    storageSet(STORAGE_KEYS.DISPLAY_ORDER, newIds);
+  }, []);
+
+  const onSyncToggle = useCallback(() => {
+    if (syncOrder) {
+      // Turn sync OFF — initialise display order from current table order
+      const ids = rows.map(r => r.id);
+      setDisplayOrderIds(ids);
+      setSyncOrder(false);
+      storageSet(STORAGE_KEYS.DISPLAY_ORDER, ids);
+      storageSet(STORAGE_KEYS.SYNC_ORDER, false);
+    } else {
+      // Turn sync ON — clear independent display order
+      setDisplayOrderIds([]);
+      setSyncOrder(true);
+      storageSet(STORAGE_KEYS.DISPLAY_ORDER, []);
+      storageSet(STORAGE_KEYS.SYNC_ORDER, true);
+    }
+  }, [syncOrder, rows]);
+
   // ── Drag/collapse ────────────────────────────────────────────────
   function startDrag(e: React.MouseEvent | React.TouchEvent) {
     e.preventDefault();
@@ -198,7 +243,7 @@ export function DashboardClient() {
       <div style={{ height: "100dvh", width: "100vw", overflow: "hidden", background: "#06080a" }}>
         <LivePreview
           tweaks={tweaks}
-          rows={rows}
+          rows={displayRows}
           logo={logo}
           bg={bg}
           fullscreen={true}
@@ -312,6 +357,8 @@ export function DashboardClient() {
               bg={bg}
               setBg={setBg}
               showHeader={false}
+              syncOrder={syncOrder}
+              onSyncToggle={onSyncToggle}
               onGoLive={() => setFullscreen(true)}
             />
           </div>
@@ -324,11 +371,12 @@ export function DashboardClient() {
           >
             <LivePreview
               tweaks={tweaks}
-              rows={rows}
+              rows={displayRows}
               logo={logo}
               bg={bg}
               fullscreen={false}
               onExit={() => {}}
+              onReorder={syncOrder ? undefined : onDisplayReorder}
             />
           </div>
         </div>
@@ -365,6 +413,8 @@ export function DashboardClient() {
           setLogo={setLogo}
           bg={bg}
           setBg={setBg}
+          syncOrder={syncOrder}
+          onSyncToggle={onSyncToggle}
           onGoLive={() => setFullscreen(true)}
         />
       </div>
@@ -407,11 +457,12 @@ export function DashboardClient() {
       <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
         <LivePreview
           tweaks={tweaks}
-          rows={rows}
+          rows={displayRows}
           logo={logo}
           bg={bg}
           fullscreen={false}
           onExit={() => setFullscreen(false)}
+          onReorder={syncOrder ? undefined : onDisplayReorder}
         />
       </div>
     </div>

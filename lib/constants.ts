@@ -33,4 +33,6 @@ export const STORAGE_KEYS = {
   LOGO: "lc:logo",
   BG: "lc:bg",
   ADMIN_WIDTH: "lc:adminWidth",
+  DISPLAY_ORDER: "lc:displayOrder",
+  SYNC_ORDER: "lc:syncOrder",
 } as const;

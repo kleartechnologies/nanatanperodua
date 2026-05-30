@@ -18,6 +18,8 @@ interface Props {
   setBg: (v: string | null) => void;
   onGoLive: () => void;
   showHeader?: boolean;
+  syncOrder: boolean;
+  onSyncToggle: () => void;
 }
 
 export function AdminPanel({
@@ -27,6 +29,8 @@ export function AdminPanel({
   bg, setBg,
   onGoLive,
   showHeader = true,
+  syncOrder,
+  onSyncToggle,
 }: Props) {
   return (
     <aside
@@ -84,7 +88,12 @@ export function AdminPanel({
           bgBlur={tweaks.bgBlur}
           onChange={setTweak}
         />
-        <EligibilityTableCard rows={rows} onChange={setRows} />
+        <EligibilityTableCard
+          rows={rows}
+          onChange={setRows}
+          syncOrder={syncOrder}
+          onSyncToggle={onSyncToggle}
+        />
 
         <button
           className="lc-touch flex items-center justify-center gap-2.5 py-3.5 rounded-[14px] font-bold text-[13px] tracking-[0.02em] transition-all"
