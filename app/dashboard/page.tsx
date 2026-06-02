@@ -1,10 +1,5 @@
-import { DashboardErrorBoundary } from "./ErrorBoundary";
-import { DashboardClient } from "./DashboardClient";
+import { DashboardLoader } from "./DashboardLoader";
 
 export default function DashboardPage() {
-  return (
-    <DashboardErrorBoundary>
-      <DashboardClient />
-    </DashboardErrorBoundary>
-  );
+  return <DashboardLoader />;
 }

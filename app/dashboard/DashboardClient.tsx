@@ -38,142 +38,131 @@ function IconFullscreen() {
 }
 
 // ── Root client component ─────────────────────────────────────────
+// This component is loaded with ssr:false (see page.tsx), so it ONLY ever
+// runs on the client.  All browser APIs (window, localStorage, matchMedia)
+// are guaranteed to exist.  We use lazy useState initialisers so every piece
+// of state is correct on the very first render — no mounted-gate, no
+// loading screen, no race condition.
 
 export function DashboardClient() {
-  const [mounted, setMounted] = useState(false);
+  // ── Content state — lazy-initialised from localStorage ───────────
+  const [tweaks, setTweaksRaw] = useState<TweakSettings>(() => {
+    try {
+      const v = storageGet<TweakSettings>(STORAGE_KEYS.TWEAKS, TWEAK_DEFAULTS);
+      lcLog("storage", "tweaks loaded:", v.accent, v.displayMode);
+      return v;
+    } catch (e) {
+      lcWarn("storage", "tweaks read failed, using defaults", e);
+      return TWEAK_DEFAULTS;
+    }
+  });
 
-  // ── Content state ────────────────────────────────────────────────
-  const [tweaks, setTweaksRaw] = useState<TweakSettings>(TWEAK_DEFAULTS);
-  const [rows, setRowsRaw] = useState<CarModel[]>(DEFAULT_ROWS);
-  const [logo, setLogoRaw] = useState<string | null>(null);
-  const [bg, setBgRaw] = useState<string | null>(null);
+  const [rows, setRowsRaw] = useState<CarModel[]>(() => {
+    try {
+      const v = storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS);
+      lcLog("storage", `rows loaded: ${v.length} models`);
+      return v;
+    } catch (e) {
+      lcWarn("storage", "rows read failed, using defaults", e);
+      return DEFAULT_ROWS;
+    }
+  });
+
+  const [logo, setLogoRaw] = useState<string | null>(() => {
+    try { return storageGet<string | null>(STORAGE_KEYS.LOGO, null); }
+    catch { return null; }
+  });
+
+  const [bg, setBgRaw] = useState<string | null>(() => {
+    try { return storageGet<string | null>(STORAGE_KEYS.BG, null); }
+    catch { return null; }
+  });
+
   const [fullscreen, setFullscreen] = useState(false);
 
-  // Populated when initialization recovers from an error (shown in warning banner)
+  // Optional warning banner (shown if any feature degrades gracefully)
   const [initWarning, setInitWarning] = useState<string | null>(null);
 
   // ── Drag-and-drop order state ────────────────────────────────────
-  // syncOrder=true  → live display follows table row order
-  // syncOrder=false → live display has independent card order (stored as id array)
-  const [syncOrder, setSyncOrder] = useState(true);
-  const [displayOrderIds, setDisplayOrderIds] = useState<number[]>([]);
+  const [syncOrder, setSyncOrder] = useState<boolean>(() => {
+    try { return storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true); }
+    catch { return true; }
+  });
 
-  // ── Responsive layout state ──────────────────────────────────────
-  const [isDesktop, setIsDesktop] = useState(true);
+  const [displayOrderIds, setDisplayOrderIds] = useState<number[]>(() => {
+    try {
+      const v = storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []);
+      lcLog("storage", `display order: ${v.length} ids`);
+      return v;
+    } catch { return []; }
+  });
+
+  // ── Responsive layout state — lazy from matchMedia ────────────────
+  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
+    try {
+      const match = window.matchMedia("(min-width: 1024px)").matches;
+      lcLog("mq", `initial breakpoint: isDesktop=${match} (${window.innerWidth}px)`);
+      return match;
+    } catch (e) {
+      lcWarn("mq", "matchMedia failed, defaulting to desktop layout", e);
+      return true;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState<"dashboard" | "preview">("preview");
 
-  // ── Desktop resize state ─────────────────────────────────────────
-  const [adminWidth, setAdminWidth] = useState(0);
+  // ── Desktop resize state — lazy from localStorage + window ────────
+  const [adminWidth, setAdminWidth] = useState<number>(() => {
+    try {
+      const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
+      const w = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
+      lcLog("resize", `initial admin width: ${w}px`);
+      return w;
+    } catch (e) {
+      lcWarn("resize", "admin width failed, using 320px fallback", e);
+      return 320;
+    }
+  });
+
   const [collapsed, setCollapsed] = useState(false);
   const isDragging = useRef(false);
   const lastExpandedWidth = useRef(0);
 
-  // ── Mount: hydrate + determine layout ───────────────────────────
+  // ── One-time setup effect: MQ listener ───────────────────────────
+  // All state is already correct from lazy initialisers.
+  // This effect only wires up the resize listener and logs that we're ready.
   useEffect(() => {
-    lcLog("init", "Starting dashboard initialization…");
+    lcLog("init", "Dashboard mounted ✓  (ssr:false — no hydration race)");
 
     let mqCleanup: (() => void) | undefined;
-
-    // ── Safety timeout ───────────────────────────────────────────
-    // Belt-and-suspenders: if the try block somehow never reaches
-    // setMounted(true) (e.g. a browser API is missing), this timer
-    // force-shows the dashboard after 3 s so the user is never stuck.
-    const safetyTimer = window.setTimeout(() => {
-      lcWarn("init", "Safety timeout fired — initialization took >3 s. Showing dashboard with defaults.");
-      setInitWarning("Initialization timed out. Some settings may have reverted to defaults.");
-      setMounted(true);
-    }, 3000);
-
     try {
-      // ── localStorage ─────────────────────────────────────────
-      lcLog("storage", "Reading saved state from localStorage…");
-      try {
-        const savedTweaks = storageGet<TweakSettings>(STORAGE_KEYS.TWEAKS, TWEAK_DEFAULTS);
-        setTweaksRaw(savedTweaks);
-        lcLog("storage", "tweaks loaded", savedTweaks.accent, savedTweaks.displayMode);
-
-        const savedRows = storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS);
-        setRowsRaw(savedRows);
-        lcLog("storage", `rows loaded (${savedRows.length} models)`);
-
-        setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
-        setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
-        setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
-        const savedOrder = storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []);
-        setDisplayOrderIds(savedOrder);
-        lcLog("storage", `display order: ${savedOrder.length} ids`);
-      } catch (storageErr) {
-        lcWarn("storage", "localStorage read failed — using defaults.", storageErr);
-        setInitWarning("Some saved settings could not be loaded (localStorage unavailable). Using defaults.");
-      }
-
-      // ── Panel resize ──────────────────────────────────────────
-      lcLog("resize", "Calculating admin panel width…");
-      try {
-        const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
-        const init = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
-        setAdminWidth(init);
-        lastExpandedWidth.current = init;
-        lcLog("resize", `admin panel width = ${init}px (saved: ${saved}px)`);
-      } catch (resizeErr) {
-        const fallback = Math.round(window.innerWidth * DEFAULT_W_RATIO);
-        setAdminWidth(fallback);
-        lastExpandedWidth.current = fallback;
-        lcWarn("resize", `Width calculation failed, using fallback ${fallback}px.`, resizeErr);
-      }
-
-      // ── Media query / breakpoint ──────────────────────────────
-      lcLog("mq", "Detecting screen size via matchMedia…");
-      try {
-        const mq = window.matchMedia("(min-width: 1024px)");
-        setIsDesktop(mq.matches);
-        lcLog("mq", `window.innerWidth=${window.innerWidth}px → isDesktop=${mq.matches}`);
-
-        // addEventListener requires Safari 14+; fall back to addListener.
-        const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => {
-          lcLog("mq", `Breakpoint changed → isDesktop=${e.matches}`);
-          setIsDesktop(e.matches);
+      const mq = window.matchMedia("(min-width: 1024px)");
+      const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => {
+        lcLog("mq", `breakpoint changed → isDesktop=${e.matches}`);
+        setIsDesktop(e.matches);
+      };
+      if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+        mqCleanup = () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+      } else {
+        const legacy = mq as unknown as {
+          addListener: (fn: (e: MediaQueryList) => void) => void;
+          removeListener: (fn: (e: MediaQueryList) => void) => void;
         };
-        if (typeof mq.addEventListener === "function") {
-          mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
-          mqCleanup = () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
-          lcLog("mq", "Using addEventListener for MQ listener");
-        } else {
-          const legacy = mq as unknown as {
-            addListener: (fn: (e: MediaQueryList) => void) => void;
-            removeListener: (fn: (e: MediaQueryList) => void) => void;
-          };
-          legacy.addListener(handleMQ as (e: MediaQueryList) => void);
-          mqCleanup = () => legacy.removeListener(handleMQ as (e: MediaQueryList) => void);
-          lcWarn("mq", "Using deprecated addListener — Safari < 14 detected");
-        }
-      } catch (mqErr) {
-        // matchMedia unavailable — default to desktop layout
-        lcWarn("mq", "window.matchMedia unavailable. Defaulting to desktop layout.", mqErr);
-        setIsDesktop(true);
-        setInitWarning("Media query detection failed. Layout may not adapt to screen size.");
+        legacy.addListener(handleMQ as (e: MediaQueryList) => void);
+        mqCleanup = () => legacy.removeListener(handleMQ as (e: MediaQueryList) => void);
+        lcWarn("mq", "Using deprecated addListener — Safari < 14");
       }
-
-      // ── All done ──────────────────────────────────────────────
-      clearTimeout(safetyTimer);
-      lcLog("init", "Initialization complete — mounting dashboard ✓");
-      setMounted(true);
-
-    } catch (err) {
-      // Catch-all: something completely unexpected happened.
-      // Log it, cancel the safety timer, show dashboard anyway.
-      lcError("init", "Unexpected initialization error — showing dashboard with defaults.", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      setInitWarning(`Dashboard initialized with errors: ${msg}. Some features may be limited.`);
-      clearTimeout(safetyTimer);
-      setMounted(true);
+    } catch (e) {
+      lcWarn("mq", "MQ listener setup failed", e);
+      setInitWarning("Screen-size detection unavailable. Layout is fixed.");
     }
 
-    return () => {
-      clearTimeout(safetyTimer);
-      mqCleanup?.();
-    };
-  }, []);
+    // Sync lastExpandedWidth with the lazy-initialised adminWidth
+    lastExpandedWidth.current = adminWidth;
+
+    return () => mqCleanup?.();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Persist admin width ──────────────────────────────────────────
   useEffect(() => {
@@ -374,39 +363,10 @@ export function DashboardClient() {
     </div>
   ) : null;
 
-  // ── Loading ──────────────────────────────────────────────────────
-  // This screen is shown only during the first paint (before the mount
-  // useEffect completes).  It is guaranteed to disappear within 3 seconds
-  // due to the safety timer in the effect above.
-  if (!mounted) {
-    return (
-      <div
-        className="lc-screen"
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "#06080a" }}
-      >
-        {/* Animated dot trio */}
-        <div style={{ display: "flex", gap: 6 }}>
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              style={{
-                width: 7, height: 7, borderRadius: "50%",
-                background: "var(--lc-accent)",
-                display: "block",
-                animation: `lc-pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
-                opacity: 0.8,
-              }}
-            />
-          ))}
-        </div>
-        <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#5a6373" }}>
-          LiveCheck
-        </div>
-      </div>
-    );
-  }
-
   // ── Fullscreen (all breakpoints) ─────────────────────────────────
+  // NOTE: There is no mounted-gate here. Because page.tsx uses ssr:false,
+  // DashboardClient only ever runs on the client, so the dashboard renders
+  // immediately with correct state from the lazy initialisers above.
   if (fullscreen) {
     return (
       <div className="lc-screen" style={{ width: "100vw", overflow: "hidden", background: "#06080a" }}>
