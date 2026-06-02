@@ -52,36 +52,79 @@ export function DashboardClient() {
 
   // ── Mount: hydrate + determine layout ───────────────────────────
   useEffect(() => {
-    // Hydrate from localStorage
-    setTweaksRaw(storageGet<TweakSettings>(STORAGE_KEYS.TWEAKS, TWEAK_DEFAULTS));
-    setRowsRaw(storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS));
-    setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
-    setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
-    setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
-    setDisplayOrderIds(storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []));
+    // MQ listener cleanup — declared here so the return function can reach it
+    // regardless of which code path (try / catch) exits first.
+    let mqCleanup: (() => void) | undefined;
 
-    // Admin panel width — use storageGet so private-browsing Safari doesn't throw
-    const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
-    const init = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
-    setAdminWidth(init);
-    lastExpandedWidth.current = init;
+    // ── Safety timeout ───────────────────────────────────────────
+    // If anything in this effect throws BEFORE setMounted(true), the app
+    // would stay on the "Loading…" screen forever.  This timer guarantees
+    // we show the dashboard with defaults after 3 s no matter what.
+    const safetyTimer = window.setTimeout(() => {
+      console.warn(
+        "[LiveCheck] Initialization did not complete within 3 s. " +
+        "Showing dashboard with defaults.",
+      );
+      setMounted(true);
+    }, 3000);
 
-    // Breakpoint (batched with setMounted so there's no flash)
-    const mq = window.matchMedia("(min-width: 1024px)");
-    setIsDesktop(mq.matches);
+    try {
+      // Hydrate from localStorage — storageGet has its own try/catch and
+      // always returns the fallback, so none of these lines can throw.
+      setTweaksRaw(storageGet<TweakSettings>(STORAGE_KEYS.TWEAKS, TWEAK_DEFAULTS));
+      setRowsRaw(storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS));
+      setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
+      setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
+      setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
+      setDisplayOrderIds(storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []));
 
-    setMounted(true);
+      // Admin panel width
+      const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
+      const init = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
+      setAdminWidth(init);
+      lastExpandedWidth.current = init;
 
-    // MediaQueryList.addEventListener requires Safari 14+.
-    // Fall back to the deprecated addListener() on older WebKit.
-    const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
-      return () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
-    } else {
-      (mq as unknown as { addListener: (fn: (e: MediaQueryList) => void) => void }).addListener(handleMQ as (e: MediaQueryList) => void);
-      return () => (mq as unknown as { removeListener: (fn: (e: MediaQueryList) => void) => void }).removeListener(handleMQ as (e: MediaQueryList) => void);
+      // Breakpoint detection.
+      // window.matchMedia is the only call here that could theoretically throw
+      // (e.g. a browser extension that incorrectly patches it, or a very old
+      // WebView where it isn't defined).  Wrapping the whole block in try/catch
+      // means setMounted(true) is guaranteed to run even if this fails.
+      const mq = window.matchMedia("(min-width: 1024px)");
+      setIsDesktop(mq.matches);
+
+      // MediaQueryList.addEventListener requires Safari 14+.
+      // Fall back to the deprecated addListener() on older WebKit.
+      const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
+      if (typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+        mqCleanup = () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+      } else {
+        const legacy = mq as unknown as {
+          addListener: (fn: (e: MediaQueryList) => void) => void;
+          removeListener: (fn: (e: MediaQueryList) => void) => void;
+        };
+        legacy.addListener(handleMQ as (e: MediaQueryList) => void);
+        mqCleanup = () => legacy.removeListener(handleMQ as (e: MediaQueryList) => void);
+      }
+
+      // All initialization succeeded — dismiss the loading screen and
+      // cancel the safety timer (it's no longer needed).
+      clearTimeout(safetyTimer);
+      setMounted(true);
+
+    } catch (err) {
+      // An unexpected error occurred during initialization.
+      // Log it for debugging, cancel the safety timer, and show the
+      // dashboard anyway — the user must never be stuck on Loading….
+      console.error("[LiveCheck] Dashboard initialization failed:", err);
+      clearTimeout(safetyTimer);
+      setMounted(true);
     }
+
+    return () => {
+      clearTimeout(safetyTimer);
+      mqCleanup?.();
+    };
   }, []);
 
   // ── Persist admin width ──────────────────────────────────────────
@@ -234,11 +277,32 @@ export function DashboardClient() {
   }
 
   // ── Loading ──────────────────────────────────────────────────────
+  // This screen is shown only during the first paint (before the mount
+  // useEffect completes).  It is guaranteed to disappear within 3 seconds
+  // due to the safety timer in the effect above.
   if (!mounted) {
     return (
-      <div className="lc-screen" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#06080a" }}>
-        <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#5a6373" }}>
-          Loading…
+      <div
+        className="lc-screen"
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "#06080a" }}
+      >
+        {/* Animated dot trio */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                width: 7, height: 7, borderRadius: "50%",
+                background: "var(--lc-accent)",
+                display: "block",
+                animation: `lc-pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                opacity: 0.8,
+              }}
+            />
+          ))}
+        </div>
+        <div style={{ fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: "#5a6373" }}>
+          LiveCheck
         </div>
       </div>
     );

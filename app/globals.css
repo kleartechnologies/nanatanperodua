@@ -163,6 +163,12 @@
   :root { --lc-fail: oklch(0.7 0.22 25); }
 }
 
+/* ── Loading screen pulse animation ── */
+@keyframes lc-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+  40%           { transform: scale(1);   opacity: 1;   }
+}
+
 /* ── Full-screen height with 100dvh fallback ── */
 /*
  * Use .lc-screen instead of inline style={{ height: "100dvh" }}.
