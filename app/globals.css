@@ -289,7 +289,11 @@ button, [role="button"], input, label, select, textarea {
 }
 
 /* ── Cursor during resize ── */
-body.is-resizing { cursor: col-resize !important; user-select: none !important; }
+body.is-resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important; /* Safari < 15.4 */
+}
 body.is-resizing * { cursor: col-resize !important; pointer-events: none !important; }
 /* Keep the divider itself interactive during drag */
 body.is-resizing .lc-divider { pointer-events: auto !important; }

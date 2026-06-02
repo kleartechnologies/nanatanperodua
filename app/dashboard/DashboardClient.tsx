@@ -127,16 +127,22 @@ export function DashboardClient() {
       const maxW = Math.min(window.innerWidth * MAX_W_RATIO, 720);
       setAdminWidth(Math.max(MIN_W, Math.min(maxW, e.touches[0].clientX)));
     }
-    function onTouchEnd() {
+    // Shared cleanup for both touchend and touchcancel.
+    // touchcancel fires on iPad when a system overlay (notification, call,
+    // Slide Over panel) interrupts a touch — without this the divider stays
+    // locked in the "is-resizing" state.
+    function endTouchDrag() {
       if (!isDragging.current) return;
       isDragging.current = false;
       document.body.classList.remove("is-resizing");
     }
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchmove",   onTouchMove, { passive: false });
+    window.addEventListener("touchend",    endTouchDrag);
+    window.addEventListener("touchcancel", endTouchDrag); // ← iPad interrupt fix
     return () => {
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchmove",   onTouchMove);
+      window.removeEventListener("touchend",    endTouchDrag);
+      window.removeEventListener("touchcancel", endTouchDrag);
     };
   }, []);
 
@@ -393,7 +399,7 @@ export function DashboardClient() {
 
   return (
     <div
-      className="h-screen w-screen overflow-hidden flex"
+      className="lc-screen w-screen overflow-hidden flex"
       style={{ background: "radial-gradient(ellipse at 30% 0%, #0e1318 0%, #06080a 60%)" }}
     >
       {/* Admin panel */}
