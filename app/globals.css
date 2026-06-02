@@ -132,8 +132,16 @@
 /* ── LiveCheck design tokens ── */
 :root {
   --lc-accent: #7CFF6B;
-  --lc-accent-soft: color-mix(in oklab, var(--lc-accent) 30%, transparent);
-  --lc-accent-dim: color-mix(in oklab, var(--lc-accent) 12%, transparent);
+  /*
+   * Fallback rgba values for --lc-accent-soft/dim.
+   * JavaScript (DashboardClient) overrides these at runtime with the correct
+   * accent colour via withAlpha(). The initial values here match the default
+   * #7CFF6B accent so the page looks correct even before JS runs.
+   * We deliberately do NOT use color-mix() here because Safari < 16.2 treats
+   * it as an invalid value, cascading everything that reads the variable.
+   */
+  --lc-accent-soft: rgba(124,255,107,0.30);
+  --lc-accent-dim:  rgba(124,255,107,0.12);
   --lc-bg-0: #06080a;
   --lc-bg-1: #0a0d10;
   --lc-line: rgba(255,255,255,0.06);
@@ -141,12 +149,32 @@
   --lc-text: #e8edf3;
   --lc-text-mute: #8a93a3;
   --lc-text-dim: #5a6373;
-  --lc-fail: oklch(0.7 0.22 25);
+  /*
+   * --lc-fail: rgba fallback first, oklch for browsers that support it.
+   * oklch() requires Safari 15.4+. rgba(213,72,45) ≈ oklch(0.7 0.22 25).
+   */
+  --lc-fail: rgba(213,72,45,1);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
 }
+@supports (color: oklch(0.7 0.22 25)) {
+  :root { --lc-fail: oklch(0.7 0.22 25); }
+}
+
+/* ── Full-screen height with 100dvh fallback ── */
+/*
+ * Use .lc-screen instead of inline style={{ height: "100dvh" }}.
+ * CSS cascade: browsers that don't understand 100dvh keep 100vh.
+ * 100dvh (dynamic) accounts for iOS Safari's retractable address bar.
+ */
+.lc-screen { height: 100vh; height: 100dvh; }
+
+/* ── Suppress number input spinners on iOS/WebKit ── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
 
 /* ── Touch optimisation ── */
 *, *::before, *::after { -webkit-tap-highlight-color: transparent; }
@@ -413,10 +441,12 @@ body.is-resizing .lc-divider-grip { opacity: 1; }
   transition: opacity 0.2s;
 }
 .lc-glow .lc-result-pass::after {
+  background: var(--lc-accent); /* fallback — opacity provides transparency */
   background: color-mix(in oklab, var(--lc-accent) 50%, transparent);
   opacity: 0.5;
 }
 .lc-glow .lc-result-fail::after {
+  background: var(--lc-fail); /* fallback */
   background: color-mix(in oklab, var(--lc-fail) 50%, transparent);
   opacity: 0.35;
 }
@@ -471,7 +501,7 @@ body.is-resizing .lc-divider-grip { opacity: 1; }
   content: "";
   position: absolute;
   inset: -10%;
-  background: radial-gradient(ellipse 25% 60% at 85% 25%, color-mix(in oklab, var(--lc-accent) 20%, transparent), transparent 70%);
+  background: radial-gradient(ellipse 25% 60% at 85% 25%, var(--lc-accent-soft), transparent 70%);
   filter: blur(40px);
   mix-blend-mode: screen;
   pointer-events: none;

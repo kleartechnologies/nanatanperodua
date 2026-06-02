@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 import type { TweakSettings, CarModel } from "@/lib/types";
 import { TWEAK_DEFAULTS, DEFAULT_ROWS, STORAGE_KEYS } from "@/lib/constants";
-import { storageGet, storageSet } from "@/lib/utils";
+import { storageGet, storageSet, withAlpha } from "@/lib/utils";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { LivePreview } from "@/components/live/LivePreview";
 
@@ -60,8 +60,8 @@ export function DashboardClient() {
     setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
     setDisplayOrderIds(storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []));
 
-    // Admin panel width
-    const saved = +localStorage.getItem("lc:adminWidth")!;
+    // Admin panel width — use storageGet so private-browsing Safari doesn't throw
+    const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
     const init = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
     setAdminWidth(init);
     lastExpandedWidth.current = init;
@@ -72,30 +72,31 @@ export function DashboardClient() {
 
     setMounted(true);
 
-    // Listen for resize (e.g. tablet rotation)
-    const handleMQ = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handleMQ);
-    return () => mq.removeEventListener("change", handleMQ);
+    // MediaQueryList.addEventListener requires Safari 14+.
+    // Fall back to the deprecated addListener() on older WebKit.
+    const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+      return () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+    } else {
+      (mq as unknown as { addListener: (fn: (e: MediaQueryList) => void) => void }).addListener(handleMQ as (e: MediaQueryList) => void);
+      return () => (mq as unknown as { removeListener: (fn: (e: MediaQueryList) => void) => void }).removeListener(handleMQ as (e: MediaQueryList) => void);
+    }
   }, []);
 
   // ── Persist admin width ──────────────────────────────────────────
   useEffect(() => {
     if (adminWidth > 0 && !collapsed) {
-      localStorage.setItem("lc:adminWidth", String(adminWidth));
+      storageSet(STORAGE_KEYS.ADMIN_WIDTH, adminWidth);
     }
   }, [adminWidth, collapsed]);
 
   // ── Accent CSS vars ──────────────────────────────────────────────
+  // Use withAlpha() instead of color-mix() — color-mix requires Safari 16.2.
   useEffect(() => {
     document.documentElement.style.setProperty("--lc-accent", tweaks.accent);
-    document.documentElement.style.setProperty(
-      "--lc-accent-soft",
-      `color-mix(in oklab, ${tweaks.accent} 30%, transparent)`
-    );
-    document.documentElement.style.setProperty(
-      "--lc-accent-dim",
-      `color-mix(in oklab, ${tweaks.accent} 12%, transparent)`
-    );
+    document.documentElement.style.setProperty("--lc-accent-soft", withAlpha(tweaks.accent, 0.30));
+    document.documentElement.style.setProperty("--lc-accent-dim",  withAlpha(tweaks.accent, 0.12));
   }, [tweaks.accent]);
 
   // ── Mouse drag ───────────────────────────────────────────────────
@@ -229,7 +230,7 @@ export function DashboardClient() {
   // ── Loading ──────────────────────────────────────────────────────
   if (!mounted) {
     return (
-      <div style={{ height: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#06080a" }}>
+      <div className="lc-screen" style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "#06080a" }}>
         <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#5a6373" }}>
           Loading…
         </div>
@@ -240,7 +241,7 @@ export function DashboardClient() {
   // ── Fullscreen (all breakpoints) ─────────────────────────────────
   if (fullscreen) {
     return (
-      <div style={{ height: "100dvh", width: "100vw", overflow: "hidden", background: "#06080a" }}>
+      <div className="lc-screen" style={{ width: "100vw", overflow: "hidden", background: "#06080a" }}>
         <LivePreview
           tweaks={tweaks}
           rows={displayRows}
@@ -257,10 +258,10 @@ export function DashboardClient() {
   if (!isDesktop) {
     return (
       <div
+        className="lc-screen"
         style={{
           display: "flex",
           flexDirection: "column",
-          height: "100dvh",
           background: "#06080a",
           overflow: "hidden",
         }}
@@ -281,7 +282,7 @@ export function DashboardClient() {
                 style={{
                   width: 18, height: 18, borderRadius: 5,
                   background: tweaks.accent,
-                  boxShadow: `0 0 12px color-mix(in oklab, ${tweaks.accent} 30%, transparent)`,
+                  boxShadow: `0 0 12px ${withAlpha(tweaks.accent, 0.30)}`,
                   flexShrink: 0,
                 }}
               />
@@ -314,7 +315,7 @@ export function DashboardClient() {
                 letterSpacing: "0.02em",
                 cursor: "pointer",
                 minHeight: 38,
-                boxShadow: `0 4px 18px color-mix(in oklab, ${tweaks.accent} 40%, transparent)`,
+                boxShadow: `0 4px 18px ${withAlpha(tweaks.accent, 0.40)}`,
               }}
               onClick={() => setFullscreen(true)}
             >

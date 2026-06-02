@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import type { TweakSettings, CarModel } from "@/lib/types";
+import { withAlpha } from "@/lib/utils";
 import { SalaryCard } from "./SalaryCard";
 import { ResultGrid } from "./ResultGrid";
 
@@ -53,7 +54,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit, onReor
             className="w-full h-full"
             style={{
               background: `
-                radial-gradient(ellipse 70% 55% at 60% 30%, color-mix(in oklab, var(--lc-accent) 9%, transparent), transparent 65%),
+                radial-gradient(ellipse 70% 55% at 60% 30%, var(--lc-accent-dim), transparent 65%),
                 radial-gradient(ellipse 55% 45% at 20% 75%, rgba(30,120,180,0.14), transparent 65%),
                 radial-gradient(ellipse 80% 60% at 50% 50%, rgba(10,30,40,0.6), transparent 80%),
                 linear-gradient(160deg, #0c1a20 0%, #0a1520 40%, #080f18 70%, #06080a 100%)
@@ -79,7 +80,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit, onReor
           className="absolute inset-0 pointer-events-none"
           style={{
             background: `
-              radial-gradient(ellipse 60% 50% at 50% 42%, color-mix(in oklab, ${tweaks.accent} 14%, transparent), transparent 70%),
+              radial-gradient(ellipse 60% 50% at 50% 42%, ${withAlpha(tweaks.accent, 0.14)}, transparent 70%),
               radial-gradient(ellipse 80% 40% at 50% 55%, rgba(180,240,255,0.06), transparent 70%)
             `,
             filter: "blur(2px)",
@@ -94,6 +95,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit, onReor
           style={{
             background: "rgba(0,0,0,0.6)",
             backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
             border: "1px solid var(--lc-line)",
           }}
           onClick={onExit}
@@ -114,6 +116,7 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit, onReor
             style={{
               background: "rgba(8,14,18,0.5)",
               backdropFilter: "blur(14px) saturate(1.2)",
+              WebkitBackdropFilter: "blur(14px) saturate(1.2)",
               border: "1px solid var(--lc-line-strong)",
               boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
             }}

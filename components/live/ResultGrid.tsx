@@ -18,7 +18,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { formatRM } from "@/lib/utils";
+import { formatRM, withAlpha } from "@/lib/utils";
+import { FAIL_ALPHA } from "@/lib/constants";
 
 interface EvaluatedRow {
   id: number;
@@ -56,10 +57,10 @@ function CardFace({ row, accent, displayMode }: {
   accent: string;
   displayMode: "glow" | "flat";
 }) {
-  const passBorder = `color-mix(in oklab, ${accent} 35%, transparent)`;
-  const failBorder = "color-mix(in oklab, var(--lc-fail) 30%, transparent)";
-  const passGlow   = `0 16px 40px rgba(0,0,0,0.4), 0 0 30px color-mix(in oklab, ${accent} 18%, transparent), inset 0 1px 0 rgba(255,255,255,0.06)`;
-  const failGlow   = "0 16px 40px rgba(0,0,0,0.4), 0 0 26px color-mix(in oklab, var(--lc-fail) 14%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)";
+  const passBorder = withAlpha(accent, 0.35);
+  const failBorder = FAIL_ALPHA[30];
+  const passGlow   = `0 16px 40px rgba(0,0,0,0.4), 0 0 30px ${withAlpha(accent, 0.18)}, inset 0 1px 0 rgba(255,255,255,0.06)`;
+  const failGlow   = `0 16px 40px rgba(0,0,0,0.4), 0 0 26px ${FAIL_ALPHA[14]}, inset 0 1px 0 rgba(255,255,255,0.04)`;
 
   return (
     <div
@@ -69,10 +70,11 @@ function CardFace({ row, accent, displayMode }: {
         minWidth: 0,
         height: "100%",
         backdropFilter: displayMode === "flat" ? "blur(10px)" : "blur(18px) saturate(1.15)",
+        WebkitBackdropFilter: displayMode === "flat" ? "blur(10px)" : "blur(18px) saturate(1.15)",
         border: `1px solid ${row.eligible ? passBorder : failBorder}`,
         background: row.eligible
-          ? `linear-gradient(180deg, color-mix(in oklab, ${accent} 10%, transparent), rgba(0,0,0,0.05)), rgba(10,18,14,0.9)`
-          : "linear-gradient(180deg, color-mix(in oklab, var(--lc-fail) 8%, transparent), rgba(0,0,0,0.05)), rgba(18,12,12,0.9)",
+          ? `linear-gradient(180deg, ${withAlpha(accent, 0.10)}, rgba(0,0,0,0.05)), rgba(10,18,14,0.9)`
+          : `linear-gradient(180deg, ${FAIL_ALPHA[8]}, rgba(0,0,0,0.05)), rgba(18,12,12,0.9)`,
         boxShadow: displayMode === "glow"
           ? row.eligible ? passGlow : failGlow
           : "none",
@@ -98,8 +100,8 @@ function CardFace({ row, accent, displayMode }: {
             fontFamily: "var(--font-display)",
             background: row.eligible ? accent : "rgba(0,0,0,0.5)",
             color: row.eligible ? "#001005" : "var(--lc-fail)",
-            border: row.eligible ? "none" : `1px solid color-mix(in oklab, var(--lc-fail) 50%, transparent)`,
-            boxShadow: row.eligible ? `0 0 14px color-mix(in oklab, ${accent} 50%, transparent)` : "none",
+            border: row.eligible ? "none" : `1px solid ${FAIL_ALPHA[50]}`,
+            boxShadow: row.eligible ? `0 0 14px ${withAlpha(accent, 0.50)}` : "none",
           }}
         >
           {row.eligible ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatRM } from "@/lib/utils";
+import { formatRM, withAlpha } from "@/lib/utils";
 
 interface Props {
   salary: number;
@@ -23,7 +23,7 @@ export function SalaryCard({ salary, onSalaryChange, passCount, failCount, accen
           left: "50%", top: "50%",
           width: "140%", height: "260%",
           transform: "translate(-50%, -50%)",
-          background: `radial-gradient(ellipse 50% 40% at 50% 50%, color-mix(in oklab, ${accent} 22%, transparent), transparent 65%)`,
+          background: `radial-gradient(ellipse 50% 40% at 50% 50%, ${withAlpha(accent, 0.22)}, transparent 65%)`,
           filter: "blur(40px)",
           mixBlendMode: "screen",
           zIndex: 0,
@@ -38,7 +38,8 @@ export function SalaryCard({ salary, onSalaryChange, passCount, failCount, accen
           border: "1px solid var(--lc-line-strong)",
           padding: "clamp(12px, 3vw, 18px) clamp(14px, 4vw, 28px) 14px",
           backdropFilter: "blur(24px) saturate(1.2)",
-          boxShadow: `0 24px 60px rgba(0,0,0,0.5), 0 0 80px color-mix(in oklab, ${accent} 10%, transparent), inset 0 1px 0 rgba(255,255,255,0.08)`,
+          WebkitBackdropFilter: "blur(24px) saturate(1.2)",
+          boxShadow: `0 24px 60px rgba(0,0,0,0.5), 0 0 80px ${withAlpha(accent, 0.10)}, inset 0 1px 0 rgba(255,255,255,0.08)`,
         }}
       >
         {/* Corner accents */}

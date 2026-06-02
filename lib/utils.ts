@@ -6,7 +6,25 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatRM(n: number): string {
-  return new Intl.NumberFormat("en-MY").format(Math.max(0, Math.round(n)));
+  const num = Math.max(0, Math.round(n));
+  try {
+    return new Intl.NumberFormat("en-MY").format(num);
+  } catch {
+    return num.toLocaleString();
+  }
+}
+
+/**
+ * Convert a 6-digit hex color to rgba().
+ * Used instead of `color-mix(in oklab, ...)` for Safari < 16.2 compatibility.
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  const h = hex.startsWith("#") ? hex.slice(1) : hex;
+  if (h.length !== 6) return hex;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 export function readImageFile(file: File): Promise<string> {

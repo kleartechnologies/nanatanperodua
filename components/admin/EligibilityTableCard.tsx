@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { CarModel } from "@/lib/types";
+import { FAIL_ALPHA } from "@/lib/constants";
 
 // Column layout: handle | model | variants | min | delete
 const GRID = "32px 60px 1fr 68px 32px";
@@ -96,7 +97,7 @@ function SortableRow({ row, onUpdate, onDelete }: SortableRowProps) {
           transform: isDragging ? "scale(1.025)" : "scale(1)",
           background: isDragging ? "rgba(6,10,16,0.97)" : "transparent",
           border: isDragging
-            ? "1px solid color-mix(in oklab, var(--lc-accent) 35%, transparent)"
+            ? "1px solid var(--lc-accent-soft)"
             : "1px solid transparent",
           boxShadow: isDragging
             ? "0 10px 36px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05)"
@@ -167,7 +168,7 @@ function SortableRow({ row, onUpdate, onDelete }: SortableRowProps) {
         <button
           style={{ width: 32, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "1px solid var(--lc-line)", borderRadius: 8, color: "var(--lc-text-dim)", cursor: "pointer", padding: 0 }}
           onClick={onDelete}
-          onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-fail)"; b.style.borderColor = "color-mix(in oklab, var(--lc-fail) 40%, transparent)"; b.style.background = "color-mix(in oklab, var(--lc-fail) 8%, transparent)"; }}
+          onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-fail)"; b.style.borderColor = FAIL_ALPHA[40]; b.style.background = FAIL_ALPHA[8]; }}
           onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-text-dim)"; b.style.borderColor = "var(--lc-line)"; b.style.background = "transparent"; }}
           aria-label="Delete row"
         >

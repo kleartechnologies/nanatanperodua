@@ -1,6 +1,7 @@
 "use client";
 
 import type { TweakSettings, CarModel } from "@/lib/types";
+import { withAlpha } from "@/lib/utils";
 import { BrandingCard } from "./BrandingCard";
 import { DisplayCopyCard } from "./DisplayCopyCard";
 import { ThemeCard } from "./ThemeCard";
@@ -52,7 +53,7 @@ export function AdminPanel({
               className="w-[22px] h-[22px] rounded-[7px]"
               style={{
                 background: tweaks.accent,
-                boxShadow: `0 0 18px color-mix(in oklab, ${tweaks.accent} 30%, transparent), inset 0 0 0 1px rgba(0,0,0,0.3)`,
+                boxShadow: `0 0 18px ${withAlpha(tweaks.accent, 0.30)}, inset 0 0 0 1px rgba(0,0,0,0.3)`,
               }}
             />
             <div>
@@ -101,11 +102,11 @@ export function AdminPanel({
             background: tweaks.accent,
             color: "#001005",
             border: 0,
-            boxShadow: `0 8px 30px color-mix(in oklab, ${tweaks.accent} 35%, transparent), inset 0 1px 0 rgba(255,255,255,0.4)`,
+            boxShadow: `0 8px 30px ${withAlpha(tweaks.accent, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.4)`,
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 12px 36px color-mix(in oklab, ${tweaks.accent} 50%, transparent), inset 0 1px 0 rgba(255,255,255,0.4)`;
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 12px 36px ${withAlpha(tweaks.accent, 0.50)}, inset 0 1px 0 rgba(255,255,255,0.4)`;
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.transform = "";

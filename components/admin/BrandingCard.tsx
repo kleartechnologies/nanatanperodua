@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { readImageFile } from "@/lib/utils";
+import { FAIL_ALPHA } from "@/lib/constants";
 
 interface BrandingCardProps {
   logo: string | null;
@@ -40,13 +41,13 @@ const btnAccent: React.CSSProperties = {
 const btnDanger: React.CSSProperties = {
   ...btnBase,
   background: "transparent",
-  border: "1px solid color-mix(in oklab, var(--lc-fail) 50%, transparent)",
+  border: `1px solid ${FAIL_ALPHA[50]}`,
   color: "var(--lc-fail)",
 };
 
 const btnDangerConfirm: React.CSSProperties = {
   ...btnBase,
-  background: "color-mix(in oklab, var(--lc-fail) 15%, transparent)",
+  background: FAIL_ALPHA[10],
   border: "1px solid var(--lc-fail)",
   color: "var(--lc-fail)",
   fontWeight: 700,
@@ -147,7 +148,7 @@ function ImageSlot({ label, hint, image, emptyLabel, striped, onUpload, onRemove
                 Replace
               </button>
               <button style={btnDanger} onClick={() => setConfirmRemove(true)}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in oklab, var(--lc-fail) 10%, transparent)"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = FAIL_ALPHA[10]; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
               >
                 Remove

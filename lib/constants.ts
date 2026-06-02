@@ -27,6 +27,20 @@ export const DEFAULT_ROWS: CarModel[] = [
   { id: 6, model: "ARUZ",  min: 3000, variants: ["1.5 X"] },
 ];
 
+// Approximation of oklch(0.7 0.22 25) for Safari < 15.4 (no oklch support).
+// Used with withAlpha() instead of color-mix(in oklab, var(--lc-fail) X%, transparent).
+export const FAIL_HEX = "#d5482d";
+
+// Pre-mixed fail colour variants used directly in inline styles.
+export const FAIL_ALPHA = {
+  8:  "rgba(213,72,45,0.08)",
+  10: "rgba(213,72,45,0.10)",
+  14: "rgba(213,72,45,0.14)",
+  30: "rgba(213,72,45,0.30)",
+  40: "rgba(213,72,45,0.40)",
+  50: "rgba(213,72,45,0.50)",
+} as const;
+
 export const STORAGE_KEYS = {
   TWEAKS: "lc:tweaks",
   ROWS: "lc:rows",
