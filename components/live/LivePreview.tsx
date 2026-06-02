@@ -3,8 +3,34 @@
 import { useState, useEffect, useMemo } from "react";
 import type { TweakSettings, CarModel } from "@/lib/types";
 import { withAlpha } from "@/lib/utils";
+import { FeatureBoundary } from "@/components/ui/FeatureBoundary";
 import { SalaryCard } from "./SalaryCard";
-import { ResultGrid } from "./ResultGrid";
+import { ResultGrid, CardFace } from "./ResultGrid";
+
+interface EvaluatedRow {
+  id: number; model: string; min: number; variants: string[]; eligible: boolean;
+}
+
+/**
+ * Purely static grid — zero dnd-kit hooks.
+ * Used as the FeatureBoundary fallback when ResultGrid's drag hooks crash.
+ */
+function StaticResultGrid({ rows, displayMode, accent, fullscreen }: {
+  rows: EvaluatedRow[];
+  displayMode: "glow" | "flat";
+  accent: string;
+  fullscreen?: boolean;
+}) {
+  return (
+    <div className={fullscreen ? "lc-result-grid lc-result-grid-fs" : "lc-result-grid"}>
+      {rows.map(r => (
+        <div key={r.id} style={{ minHeight: 0 }}>
+          <CardFace row={r} accent={accent} displayMode={displayMode} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   tweaks: TweakSettings;
@@ -169,14 +195,27 @@ export function LivePreview({ tweaks, rows, logo, bg, fullscreen, onExit, onReor
           />
         </div>
 
-        {/* Result grid */}
-        <ResultGrid
-          rows={evaluated}
-          displayMode={tweaks.displayMode}
-          accent={tweaks.accent}
-          fullscreen={fullscreen}
-          onReorder={onReorder}
-        />
+        {/* Result grid — wrapped in FeatureBoundary so a dnd-kit crash on this
+            device silently falls back to a static no-drag grid. */}
+        <FeatureBoundary
+          feature="live-grid-drag"
+          fallback={
+            <StaticResultGrid
+              rows={evaluated}
+              displayMode={tweaks.displayMode}
+              accent={tweaks.accent}
+              fullscreen={fullscreen}
+            />
+          }
+        >
+          <ResultGrid
+            rows={evaluated}
+            displayMode={tweaks.displayMode}
+            accent={tweaks.accent}
+            fullscreen={fullscreen}
+            onReorder={onReorder}
+          />
+        </FeatureBoundary>
 
         {/* Disclaimer */}
         <div

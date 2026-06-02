@@ -12,6 +12,21 @@ const MIN_W = 260;
 const MAX_W_RATIO = 0.65;
 const DEFAULT_W_RATIO = 0.30;
 
+// ── Diagnostics ───────────────────────────────────────────────────
+// Prefix every log so iPad users can filter quickly in Safari DevTools.
+function lcLog(scope: string, msg: string, ...extra: unknown[]) {
+  // eslint-disable-next-line no-console
+  console.log(`[LiveCheck:${scope}] ${msg}`, ...extra);
+}
+function lcWarn(scope: string, msg: string, ...extra: unknown[]) {
+  // eslint-disable-next-line no-console
+  console.warn(`[LiveCheck:${scope}] ${msg}`, ...extra);
+}
+function lcError(scope: string, msg: string, ...extra: unknown[]) {
+  // eslint-disable-next-line no-console
+  console.error(`[LiveCheck:${scope}] ${msg}`, ...extra);
+}
+
 // ── Icons ─────────────────────────────────────────────────────────
 
 function IconFullscreen() {
@@ -34,6 +49,9 @@ export function DashboardClient() {
   const [bg, setBgRaw] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
 
+  // Populated when initialization recovers from an error (shown in warning banner)
+  const [initWarning, setInitWarning] = useState<string | null>(null);
+
   // ── Drag-and-drop order state ────────────────────────────────────
   // syncOrder=true  → live display follows table row order
   // syncOrder=false → live display has independent card order (stored as id array)
@@ -52,71 +70,101 @@ export function DashboardClient() {
 
   // ── Mount: hydrate + determine layout ───────────────────────────
   useEffect(() => {
-    // MQ listener cleanup — declared here so the return function can reach it
-    // regardless of which code path (try / catch) exits first.
+    lcLog("init", "Starting dashboard initialization…");
+
     let mqCleanup: (() => void) | undefined;
 
     // ── Safety timeout ───────────────────────────────────────────
-    // If anything in this effect throws BEFORE setMounted(true), the app
-    // would stay on the "Loading…" screen forever.  This timer guarantees
-    // we show the dashboard with defaults after 3 s no matter what.
+    // Belt-and-suspenders: if the try block somehow never reaches
+    // setMounted(true) (e.g. a browser API is missing), this timer
+    // force-shows the dashboard after 3 s so the user is never stuck.
     const safetyTimer = window.setTimeout(() => {
-      console.warn(
-        "[LiveCheck] Initialization did not complete within 3 s. " +
-        "Showing dashboard with defaults.",
-      );
+      lcWarn("init", "Safety timeout fired — initialization took >3 s. Showing dashboard with defaults.");
+      setInitWarning("Initialization timed out. Some settings may have reverted to defaults.");
       setMounted(true);
     }, 3000);
 
     try {
-      // Hydrate from localStorage — storageGet has its own try/catch and
-      // always returns the fallback, so none of these lines can throw.
-      setTweaksRaw(storageGet<TweakSettings>(STORAGE_KEYS.TWEAKS, TWEAK_DEFAULTS));
-      setRowsRaw(storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS));
-      setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
-      setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
-      setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
-      setDisplayOrderIds(storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []));
+      // ── localStorage ─────────────────────────────────────────
+      lcLog("storage", "Reading saved state from localStorage…");
+      try {
+        const savedTweaks = storageGet<TweakSettings>(STORAGE_KEYS.TWEAKS, TWEAK_DEFAULTS);
+        setTweaksRaw(savedTweaks);
+        lcLog("storage", "tweaks loaded", savedTweaks.accent, savedTweaks.displayMode);
 
-      // Admin panel width
-      const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
-      const init = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
-      setAdminWidth(init);
-      lastExpandedWidth.current = init;
+        const savedRows = storageGet<CarModel[]>(STORAGE_KEYS.ROWS, DEFAULT_ROWS);
+        setRowsRaw(savedRows);
+        lcLog("storage", `rows loaded (${savedRows.length} models)`);
 
-      // Breakpoint detection.
-      // window.matchMedia is the only call here that could theoretically throw
-      // (e.g. a browser extension that incorrectly patches it, or a very old
-      // WebView where it isn't defined).  Wrapping the whole block in try/catch
-      // means setMounted(true) is guaranteed to run even if this fails.
-      const mq = window.matchMedia("(min-width: 1024px)");
-      setIsDesktop(mq.matches);
-
-      // MediaQueryList.addEventListener requires Safari 14+.
-      // Fall back to the deprecated addListener() on older WebKit.
-      const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => setIsDesktop(e.matches);
-      if (typeof mq.addEventListener === "function") {
-        mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
-        mqCleanup = () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
-      } else {
-        const legacy = mq as unknown as {
-          addListener: (fn: (e: MediaQueryList) => void) => void;
-          removeListener: (fn: (e: MediaQueryList) => void) => void;
-        };
-        legacy.addListener(handleMQ as (e: MediaQueryList) => void);
-        mqCleanup = () => legacy.removeListener(handleMQ as (e: MediaQueryList) => void);
+        setLogoRaw(storageGet<string | null>(STORAGE_KEYS.LOGO, null));
+        setBgRaw(storageGet<string | null>(STORAGE_KEYS.BG, null));
+        setSyncOrder(storageGet<boolean>(STORAGE_KEYS.SYNC_ORDER, true));
+        const savedOrder = storageGet<number[]>(STORAGE_KEYS.DISPLAY_ORDER, []);
+        setDisplayOrderIds(savedOrder);
+        lcLog("storage", `display order: ${savedOrder.length} ids`);
+      } catch (storageErr) {
+        lcWarn("storage", "localStorage read failed — using defaults.", storageErr);
+        setInitWarning("Some saved settings could not be loaded (localStorage unavailable). Using defaults.");
       }
 
-      // All initialization succeeded — dismiss the loading screen and
-      // cancel the safety timer (it's no longer needed).
+      // ── Panel resize ──────────────────────────────────────────
+      lcLog("resize", "Calculating admin panel width…");
+      try {
+        const saved = storageGet<number>(STORAGE_KEYS.ADMIN_WIDTH, 0);
+        const init = saved > MIN_W ? saved : Math.round(window.innerWidth * DEFAULT_W_RATIO);
+        setAdminWidth(init);
+        lastExpandedWidth.current = init;
+        lcLog("resize", `admin panel width = ${init}px (saved: ${saved}px)`);
+      } catch (resizeErr) {
+        const fallback = Math.round(window.innerWidth * DEFAULT_W_RATIO);
+        setAdminWidth(fallback);
+        lastExpandedWidth.current = fallback;
+        lcWarn("resize", `Width calculation failed, using fallback ${fallback}px.`, resizeErr);
+      }
+
+      // ── Media query / breakpoint ──────────────────────────────
+      lcLog("mq", "Detecting screen size via matchMedia…");
+      try {
+        const mq = window.matchMedia("(min-width: 1024px)");
+        setIsDesktop(mq.matches);
+        lcLog("mq", `window.innerWidth=${window.innerWidth}px → isDesktop=${mq.matches}`);
+
+        // addEventListener requires Safari 14+; fall back to addListener.
+        const handleMQ = (e: MediaQueryListEvent | MediaQueryList) => {
+          lcLog("mq", `Breakpoint changed → isDesktop=${e.matches}`);
+          setIsDesktop(e.matches);
+        };
+        if (typeof mq.addEventListener === "function") {
+          mq.addEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+          mqCleanup = () => mq.removeEventListener("change", handleMQ as (e: MediaQueryListEvent) => void);
+          lcLog("mq", "Using addEventListener for MQ listener");
+        } else {
+          const legacy = mq as unknown as {
+            addListener: (fn: (e: MediaQueryList) => void) => void;
+            removeListener: (fn: (e: MediaQueryList) => void) => void;
+          };
+          legacy.addListener(handleMQ as (e: MediaQueryList) => void);
+          mqCleanup = () => legacy.removeListener(handleMQ as (e: MediaQueryList) => void);
+          lcWarn("mq", "Using deprecated addListener — Safari < 14 detected");
+        }
+      } catch (mqErr) {
+        // matchMedia unavailable — default to desktop layout
+        lcWarn("mq", "window.matchMedia unavailable. Defaulting to desktop layout.", mqErr);
+        setIsDesktop(true);
+        setInitWarning("Media query detection failed. Layout may not adapt to screen size.");
+      }
+
+      // ── All done ──────────────────────────────────────────────
       clearTimeout(safetyTimer);
+      lcLog("init", "Initialization complete — mounting dashboard ✓");
       setMounted(true);
 
     } catch (err) {
-      // An unexpected error occurred during initialization.
-      // Log it for debugging, cancel the safety timer, and show the
-      // dashboard anyway — the user must never be stuck on Loading….
-      console.error("[LiveCheck] Dashboard initialization failed:", err);
+      // Catch-all: something completely unexpected happened.
+      // Log it, cancel the safety timer, show dashboard anyway.
+      lcError("init", "Unexpected initialization error — showing dashboard with defaults.", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setInitWarning(`Dashboard initialized with errors: ${msg}. Some features may be limited.`);
       clearTimeout(safetyTimer);
       setMounted(true);
     }
@@ -275,6 +323,56 @@ export function DashboardClient() {
       setCollapsed(true);
     }
   }
+
+  // ── Warning banner (shown when init recovered from an error) ────────
+  const WarningBanner = initWarning ? (
+    <div
+      role="alert"
+      style={{
+        position: "fixed",
+        bottom: 16,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        background: "rgba(36,28,6,0.97)",
+        border: "1px solid rgba(230,160,30,0.35)",
+        borderRadius: 12,
+        padding: "10px 14px",
+        maxWidth: "min(92vw, 500px)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e8a020" strokeWidth="2" style={{ flexShrink: 0 }}>
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+      <span style={{ fontSize: 12, color: "#e8a020", flex: 1, lineHeight: 1.5 }}>
+        {initWarning}
+      </span>
+      <button
+        onClick={() => setInitWarning(null)}
+        aria-label="Dismiss warning"
+        style={{
+          background: "transparent",
+          border: 0,
+          color: "#8a93a3",
+          cursor: "pointer",
+          padding: "2px 4px",
+          fontSize: 16,
+          lineHeight: 1,
+          flexShrink: 0,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  ) : null;
 
   // ── Loading ──────────────────────────────────────────────────────
   // This screen is shown only during the first paint (before the mount
@@ -454,6 +552,8 @@ export function DashboardClient() {
 
         {/* iOS home indicator spacer */}
         <div className="lc-safe-bottom" />
+
+        {WarningBanner}
       </div>
     );
   }
@@ -536,6 +636,8 @@ export function DashboardClient() {
           onReorder={syncOrder ? undefined : onDisplayReorder}
         />
       </div>
+
+      {WarningBanner}
     </div>
   );
 }

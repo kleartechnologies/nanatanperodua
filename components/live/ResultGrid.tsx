@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -51,8 +52,8 @@ function GripIcon() {
   );
 }
 
-// ── Pure visual card ─────────────────────────────────────────────
-function CardFace({ row, accent, displayMode }: {
+// ── Pure visual card — exported so LivePreview can use it as a static fallback ──
+export function CardFace({ row, accent, displayMode }: {
   row: EvaluatedRow;
   accent: string;
   displayMode: "glow" | "flat";
@@ -192,6 +193,18 @@ function SortableCard({ row, accent, displayMode, disabled }: {
 // ── ResultGrid ───────────────────────────────────────────────────
 export function ResultGrid({ rows, displayMode, accent, fullscreen, onReorder }: Props) {
   const dragEnabled = !fullscreen && !!onReorder;
+
+  useEffect(() => {
+    console.log(
+      `[LiveCheck:dnd] ResultGrid: initializing — ${rows.length} cards, drag=${dragEnabled}`
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (dragEnabled) {
+      console.log("[LiveCheck:dnd] ResultGrid: drag-and-drop ready ✓");
+    }
+  }, [dragEnabled]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

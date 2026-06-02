@@ -2,6 +2,7 @@
 
 import type { TweakSettings, CarModel } from "@/lib/types";
 import { withAlpha } from "@/lib/utils";
+import { FeatureBoundary } from "@/components/ui/FeatureBoundary";
 import { BrandingCard } from "./BrandingCard";
 import { DisplayCopyCard } from "./DisplayCopyCard";
 import { ThemeCard } from "./ThemeCard";
@@ -89,12 +90,30 @@ export function AdminPanel({
           bgBlur={tweaks.bgBlur}
           onChange={setTweak}
         />
-        <EligibilityTableCard
-          rows={rows}
-          onChange={setRows}
-          syncOrder={syncOrder}
-          onSyncToggle={onSyncToggle}
-        />
+        {/*
+          FeatureBoundary: if dnd-kit crashes during render on this device,
+          the boundary catches it, logs it, and renders the same table with
+          noDrag=true (no dnd-kit hooks) so editing still works.
+        */}
+        <FeatureBoundary
+          feature="table-drag"
+          fallback={
+            <EligibilityTableCard
+              rows={rows}
+              onChange={setRows}
+              syncOrder={syncOrder}
+              onSyncToggle={onSyncToggle}
+              noDrag
+            />
+          }
+        >
+          <EligibilityTableCard
+            rows={rows}
+            onChange={setRows}
+            syncOrder={syncOrder}
+            onSyncToggle={onSyncToggle}
+          />
+        </FeatureBoundary>
 
         <button
           className="lc-touch flex items-center justify-center gap-2.5 py-3.5 rounded-[14px] font-bold text-[13px] tracking-[0.02em] transition-all"
@@ -110,7 +129,7 @@ export function AdminPanel({
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.transform = "";
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 30px color-mix(in oklab, ${tweaks.accent} 35%, transparent), inset 0 1px 0 rgba(255,255,255,0.4)`;
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 30px ${withAlpha(tweaks.accent, 0.35)}, inset 0 1px 0 rgba(255,255,255,0.4)`;
           }}
           onClick={onGoLive}
         >

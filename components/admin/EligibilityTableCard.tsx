@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -181,6 +182,55 @@ function SortableRow({ row, onUpdate, onDelete }: SortableRowProps) {
   );
 }
 
+// ── Plain row (no dnd-kit — used as fallback when drag is disabled) ──
+interface PlainRowProps {
+  row: CarModel;
+  onUpdate: (patch: Partial<CarModel>) => void;
+  onDelete: () => void;
+}
+
+function PlainRow({ row, onUpdate, onDelete }: PlainRowProps) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 6, alignItems: "center" }}>
+      {/* Spacer where drag handle would be */}
+      <div style={{ width: 32 }} />
+      <input
+        style={{ ...CELL, fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "0.02em" }}
+        value={row.model}
+        onChange={(e) => onUpdate({ model: e.target.value.toUpperCase() })}
+        onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
+        onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
+      />
+      <input
+        style={CELL}
+        value={row.variants.join(", ")}
+        onChange={(e) => onUpdate({ variants: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+        onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
+        onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
+      />
+      <input
+        type="number"
+        style={{ ...CELL, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
+        value={row.min}
+        onChange={(e) => onUpdate({ min: +e.target.value || 0 })}
+        onFocus={(e) => (e.target.style.borderColor = "var(--lc-accent-soft)")}
+        onBlur={(e)  => (e.target.style.borderColor = "var(--lc-line)")}
+      />
+      <button
+        style={{ width: 32, height: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "1px solid var(--lc-line)", borderRadius: 8, color: "var(--lc-text-dim)", cursor: "pointer", padding: 0 }}
+        onClick={onDelete}
+        onMouseEnter={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-fail)"; b.style.borderColor = FAIL_ALPHA[40]; b.style.background = FAIL_ALPHA[8]; }}
+        onMouseLeave={(e) => { const b = e.currentTarget as HTMLButtonElement; b.style.color = "var(--lc-text-dim)"; b.style.borderColor = "var(--lc-line)"; b.style.background = "transparent"; }}
+        aria-label="Delete row"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────
 
 interface Props {
@@ -188,9 +238,20 @@ interface Props {
   onChange: (rows: CarModel[]) => void;
   syncOrder: boolean;
   onSyncToggle: () => void;
+  /** When true, drag-and-drop is skipped entirely (graceful degradation). */
+  noDrag?: boolean;
 }
 
-export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }: Props) {
+export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle, noDrag = false }: Props) {
+  // Log dnd-kit initialization for diagnostics
+  useEffect(() => {
+    if (noDrag) {
+      console.log("[LiveCheck:dnd] EligibilityTableCard: drag disabled (noDrag=true)");
+    } else {
+      console.log("[LiveCheck:dnd] EligibilityTableCard: initializing drag-and-drop sensors…");
+    }
+  }, [noDrag]);
+
   const sensors = useSensors(
     // Mouse — activates after 5px movement so clicks still register
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -199,6 +260,12 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
     // Keyboard — for accessibility
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  useEffect(() => {
+    if (!noDrag) {
+      console.log("[LiveCheck:dnd] EligibilityTableCard: drag-and-drop ready ✓");
+    }
+  }, [noDrag]);
 
   function handleDragEnd({ active, over }: DragEndEvent) {
     if (over && active.id !== over.id) {
@@ -271,6 +338,17 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
             <span />
           </div>
 
+          {/* noDrag mode: plain rows with no dnd-kit hooks (graceful degradation) */}
+          {noDrag ? (
+            rows.map(r => (
+              <PlainRow
+                key={r.id}
+                row={r}
+                onUpdate={(patch) => onChange(rows.map(x => x.id === r.id ? { ...x, ...patch } : x))}
+                onDelete={() => onChange(rows.filter(x => x.id !== r.id))}
+              />
+            ))
+          ) : (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -291,6 +369,7 @@ export function EligibilityTableCard({ rows, onChange, syncOrder, onSyncToggle }
                 portal without width constraints, producing a different bounding
                 rect than the in-table row. */}
           </DndContext>
+          )} {/* end noDrag ternary */}
 
         </div>
       </div>
